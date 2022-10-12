@@ -37,6 +37,7 @@ contract TokenContract is
 
     uint256 internal _tokenId;
 
+    mapping(string => bool) public existingTokenURIs;
     mapping(uint256 => string) internal _tokenURIs;
 
     modifier onlyOwner() {
@@ -80,6 +81,8 @@ contract TokenContract is
         bytes32 s_,
         uint8 v_
     ) external payable override whenNotPaused nonReentrant {
+        require(!existingTokenURIs[tokenURI_], "TokenContract: Token URI already exists.");
+
         bytes32 structHash_ = keccak256(
             abi.encode(
                 _MINT_TYPEHASH,
@@ -97,6 +100,8 @@ contract TokenContract is
 
         if (paymentTokenPrice_ != 0) {
             if (paymentTokenAddress_ != address(0)) {
+                require(msg.value == 0, "TokenContract: Currency amount must be a zero.");
+
                 _payWithERC20(IERC20Metadata(paymentTokenAddress_), paymentTokenPrice_);
             } else {
                 _payWithETH(paymentTokenPrice_);
@@ -107,6 +112,7 @@ contract TokenContract is
 
         _mint(msg.sender, currentTokenId_);
         _tokenURIs[currentTokenId_] = tokenURI_;
+        existingTokenURIs[tokenURI_] = true;
 
         emit TokenMinted(msg.sender, currentTokenId_, tokenURI_);
     }
@@ -116,7 +122,7 @@ contract TokenContract is
     }
 
     function tokenURI(uint256 tokenId_) public view override returns (string memory) {
-        require(_exists(tokenId_), "TokenContract: URI query for nonexistent token");
+        require(_exists(tokenId_), "TokenContract: URI query for nonexistent token.");
 
         return _tokenURIs[tokenId_];
     }

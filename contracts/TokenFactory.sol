@@ -39,7 +39,7 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
         string memory tokenSymbol_,
         uint256 pricePerOneToken_
     ) external override onlyOwner {
-        require(bytes(tokenSymbol_).length > 0, "TokenFactory: Invalid token name.");
+        require(bytes(tokenName_).length > 0, "TokenFactory: Invalid token name.");
         require(bytes(tokenSymbol_).length > 0, "TokenFactory: Invalid token symbol.");
 
         address newTokenContract_ = address(new PublicBeaconProxy(address(poolsBeacon), ""));

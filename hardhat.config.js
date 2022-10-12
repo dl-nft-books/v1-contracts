@@ -12,14 +12,19 @@ module.exports = {
   networks: {
     hardhat: {
       initialDate: "1970-01-01T00:00:00Z",
+      chainId: 1,
+      accounts: {
+        mnemonic: "spot lobster feed tuna spike dentist mule mail absent system leopard settle",
+        accountsBalance: "100000000000000000000000",
+      },
     },
     localhost: {
       url: "http://127.0.0.1:8545",
       initialDate: "1970-01-01T00:00:00Z",
       gasMultiplier: 1.2,
     },
-    rinkeby: {
-      url: `https://rinkeby.infura.io/v3/${process.env.INFURA_KEY}`,
+    goerli: {
+      url: `https://goerli.infura.io/v3/${process.env.INFURA_KEY}`,
       accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
       gasMultiplier: 1.2,
     },
@@ -50,12 +55,7 @@ module.exports = {
     },
   },
   etherscan: {
-    apiKey: {
-      mainnet: `${process.env.ETHERSCAN_KEY}`,
-      rinkeby: `${process.env.ETHERSCAN_KEY}`,
-      bsc: `${process.env.BSCSCAN_KEY}`,
-      bscTestnet: `${process.env.BSCSCAN_KEY}`,
-    },
+    apiKey: process.env.ETHERSCAN_KEY,
   },
   mocha: {
     timeout: 1000000,

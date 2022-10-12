@@ -1,5 +1,5 @@
 {
-  "name": "hardhat-template",
+  "name": "nft-books",
   "version": "1.0.0",
   "license": "MIT",
   "author": "Distributed Lab",
@@ -13,10 +13,7 @@
     "private-network": "npx hardhat node",
     "private-network-fork": "npx hardhat node --fork https://mainnet.infura.io/v3/$(grep INFURA_KEY .env | cut -d '\"' -f2)",
     "deploy-dev": "npx hardhat run deploy/runners/deployer/migrations.js --network localhost",
-    "deploy-rinkeby": "VERIFY=true npx hardhat run deploy/runners/deployer/migrations.js --network rinkeby",
-    "deploy-chapel": "VERIFY=true npx hardhat run deploy/runners/deployer/migrations.js --network chapel",
-    "deploy-eth-mainnet": "VERIFY=true npx hardhat run deploy/runners/deployer/migrations.js --network eth_mainnet",
-    "deploy-bsc-mainnet": "VERIFY=true npx hardhat run deploy/runners/deployer/migrations.js --network bsc_mainnet",
+    "deploy": "VERIFY=true npx hardhat run deploy/runners/deployer/migrations.js --network",
     "lint-fix": "npm run lint-sol-fix && npm run lint-js-fix && npm run lint-json-fix",
     "lint-json-fix": "prettier --write \"./[a-zA-Z0-9.]+(?!-lock).json\"",
     "lint-js-fix": "prettier --write \"./**/*.js\"",
@@ -26,6 +23,7 @@
     "@openzeppelin/contracts": "4.5.0",
     "@openzeppelin/contracts-upgradeable": "4.5.0",
     "@dlsl/dev-modules": "^1.7.0",
+    "eth-sig-util": "^3.0.1",
     "dotenv": "^10.0.0",
     "hardhat": "^2.11.0"
   },
