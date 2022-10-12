@@ -13,7 +13,7 @@
     "private-network": "npx hardhat node",
     "private-network-fork": "npx hardhat node --fork https://mainnet.infura.io/v3/$(grep INFURA_KEY .env | cut -d '\"' -f2)",
     "deploy-dev": "npx hardhat run deploy/runners/deployer/migrations.js --network localhost",
-    "deploy": "VERIFY=true npx hardhat run deploy/runners/deployer/migrations.js --network",
+    "deploy": "npx hardhat run deploy/runners/deployer/migrations.js --network",
     "lint-fix": "npm run lint-sol-fix && npm run lint-js-fix && npm run lint-json-fix",
     "lint-json-fix": "prettier --write \"./[a-zA-Z0-9.]+(?!-lock).json\"",
     "lint-js-fix": "prettier --write \"./**/*.js\"",
