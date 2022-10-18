@@ -21,21 +21,25 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
     string public override baseTokensURI;
 
     EnumerableSet.AddressSet internal _tokenContracts;
+    EnumerableSet.AddressSet internal _admins;
 
-    function __TokenFactory_init(uint8 priceDecimals_, string memory baseTokensURI_)
-        external
-        override
-        initializer
-    {
+    modifier onlyAdmin() {
+        require(isAdmin(msg.sender), "TokenFactory: Only admin can call this function.");
+        _;
+    }
+
+    function __TokenFactory_init(
+        string memory baseTokensURI_,
+        address[] memory adminsArr_,
+        uint8 priceDecimals_
+    ) external override initializer {
         __Ownable_init();
 
         poolsBeacon = new ProxyBeacon();
+        baseTokensURI = baseTokensURI_;
         priceDecimals = priceDecimals_;
-        baseTokensURI = baseTokensURI_;
-    }
 
-    function updateBaseTokensURI(string memory baseTokensURI_) external override onlyOwner {
-        baseTokensURI = baseTokensURI_;
+        _updateAddressSet(_admins, adminsArr_, true);
     }
 
     function setNewImplementation(address newImplementation_) external override onlyOwner {
@@ -44,11 +48,23 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
         }
     }
 
+    function updateAdmins(address[] calldata adminsToUpdate_, bool isAdding_)
+        external
+        override
+        onlyOwner
+    {
+        _updateAddressSet(_admins, adminsToUpdate_, isAdding_);
+    }
+
+    function updateBaseTokensURI(string memory baseTokensURI_) external override onlyAdmin {
+        baseTokensURI = baseTokensURI_;
+    }
+
     function deployTokenContract(
         string memory tokenName_,
         string memory tokenSymbol_,
         uint256 pricePerOneToken_
-    ) external override onlyOwner {
+    ) external override onlyAdmin {
         _nonEmptyString(tokenName_, "token name");
         _nonEmptyString(tokenSymbol_, "token symbol");
 
@@ -81,6 +97,30 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
         returns (address[] memory)
     {
         return _tokenContracts.part(offset_, limit_);
+    }
+
+    function getAdmins() external view override returns (address[] memory) {
+        return _admins.values();
+    }
+
+    function isAdmin(address userAddr_) public view override returns (bool) {
+        return _admins.contains(userAddr_);
+    }
+
+    function _updateAddressSet(
+        EnumerableSet.AddressSet storage addressSet,
+        address[] memory addressesToUpdate_,
+        bool isAdding_
+    ) internal {
+        for (uint256 i; i < addressesToUpdate_.length; i++) {
+            if (isAdding_) {
+                require(addressesToUpdate_[i] != address(0), "PoolFactory: Bad address.");
+
+                addressSet.add(addressesToUpdate_[i]);
+            } else {
+                addressSet.remove(addressesToUpdate_[i]);
+            }
+        }
     }
 
     function _authorizeUpgrade(address newImplementation_) internal override onlyOwner {}

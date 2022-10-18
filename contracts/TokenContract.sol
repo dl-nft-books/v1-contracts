@@ -39,8 +39,11 @@ contract TokenContract is
 
     uint256 internal _tokenId;
 
-    modifier onlyOwner() {
-        require(msg.sender == owner(), "TokenContract: Only owner can call this function.");
+    modifier onlyAdmin() {
+        require(
+            tokenFactory.isAdmin(msg.sender),
+            "TokenContract: Only admin can call this function."
+        );
         _;
     }
 
@@ -59,15 +62,15 @@ contract TokenContract is
         pricePerOneToken = pricePerOneToken_;
     }
 
-    function updatePricePerOneToken(uint256 newPrice_) external override onlyOwner {
+    function updatePricePerOneToken(uint256 newPrice_) external override onlyAdmin {
         pricePerOneToken = newPrice_;
     }
 
-    function pause() external override onlyOwner {
+    function pause() external override onlyAdmin {
         _pause();
     }
 
-    function unpause() external override onlyOwner {
+    function unpause() external override onlyAdmin {
         _unpause();
     }
 
@@ -84,7 +87,7 @@ contract TokenContract is
         );
 
         address signer_ = ECDSA.recover(_hashTypedDataV4(structHash_), v_, r_, s_);
-        require(signer_ == owner(), "TokenContract: Invalid signature.");
+        require(tokenFactory.isAdmin(signer_), "TokenContract: Invalid signature.");
 
         require(block.timestamp <= endTimestamp_, "TokenContract: Signature expired.");
 

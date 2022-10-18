@@ -11,13 +11,19 @@ interface ITokenFactory {
         string tokenSymbol
     );
 
-    function __TokenFactory_init(uint8 priceDecimals_, string memory baseTokensURI_) external;
+    function __TokenFactory_init(
+        string memory baseTokensURI_,
+        address[] memory adminsArr_,
+        uint8 priceDecimals_
+    ) external;
 
     function baseTokensURI() external view returns (string memory);
 
     function updateBaseTokensURI(string memory baseTokensURI_) external;
 
     function setNewImplementation(address newImplementation_) external;
+
+    function updateAdmins(address[] calldata adminsToUpdate_, bool isAdding_) external;
 
     function deployTokenContract(
         string memory tokenName_,
@@ -28,6 +34,10 @@ interface ITokenFactory {
     function poolsBeacon() external view returns (ProxyBeacon);
 
     function priceDecimals() external view returns (uint8);
+
+    function getAdmins() external view returns (address[] memory);
+
+    function isAdmin(address userAddr_) external view returns (bool);
 
     function getTokenContractsImpl() external view returns (address);
 

@@ -31,7 +31,6 @@ describe("TokenContract", () => {
   const tokenPrice = wei(500);
   const signDuration = 10000;
   const baseTokensURI = "base URI/";
-  const defauldTokenURI = "some uri";
   let defaultEndTime;
 
   let OWNER;
@@ -79,7 +78,7 @@ describe("TokenContract", () => {
 
     tokenFactory = await TokenFactory.at(_tokenFactoryProxy.address);
 
-    await tokenFactory.__TokenFactory_init(priceDecimals, baseTokensURI);
+    await tokenFactory.__TokenFactory_init(baseTokensURI, [OWNER], priceDecimals);
 
     assert.equal((await tokenFactory.priceDecimals()).toString(), priceDecimals.toString());
 
@@ -127,8 +126,8 @@ describe("TokenContract", () => {
       assert.equal((await tokenContract.pricePerOneToken()).toFixed(), newPrice.toFixed());
     });
 
-    it("should get exception if nonowner try to call this function", async () => {
-      const reason = "TokenContract: Only owner can call this function.";
+    it("should get exception if non admin try to call this function", async () => {
+      const reason = "TokenContract: Only admin can call this function.";
 
       await truffleAssert.reverts(tokenContract.updatePricePerOneToken(newPrice, { from: USER1 }), reason);
     });
@@ -159,8 +158,8 @@ describe("TokenContract", () => {
       assert.equal(await tokenContract.ownerOf(0), USER1);
     });
 
-    it("should get exception if non owner try to call this function", async () => {
-      const reason = "TokenContract: Only owner can call this function.";
+    it("should get exception if non admin try to call this function", async () => {
+      const reason = "TokenContract: Only admin can call this function.";
 
       await truffleAssert.reverts(tokenContract.pause({ from: USER1 }), reason);
       await truffleAssert.reverts(tokenContract.unpause({ from: USER1 }), reason);
@@ -331,6 +330,12 @@ describe("TokenContract", () => {
         tokenContract.mintToken(paymentToken.address, tokenPrice, defaultEndTime, sig.r, sig.s, sig.v, { from: USER1 }),
         reason
       );
+    });
+  });
+
+  describe("owner", () => {
+    it("should return correct owner address", async () => {
+      assert.equal(await tokenContract.owner(), OWNER);
     });
   });
 

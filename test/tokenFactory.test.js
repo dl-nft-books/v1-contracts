@@ -21,6 +21,8 @@ describe("TokenFactory", () => {
 
   let OWNER;
   let USER1;
+  let ADMIN1;
+  let ADMIN2;
 
   let tokenFactory;
   let tokenFactoryImpl;
@@ -28,13 +30,15 @@ describe("TokenFactory", () => {
   before("setup", async () => {
     OWNER = await accounts(0);
     USER1 = await accounts(1);
+    ADMIN1 = await accounts(2);
+    ADMIN2 = await accounts(3);
 
     tokenFactoryImpl = await TokenFactory.new();
     const _tokenFactoryProxy = await PublicERC1967Proxy.new(tokenFactoryImpl.address, "0x");
 
     tokenFactory = await TokenFactory.at(_tokenFactoryProxy.address);
 
-    await tokenFactory.__TokenFactory_init(18, "");
+    await tokenFactory.__TokenFactory_init("", [ADMIN1, ADMIN2], 18);
 
     assert.equal((await tokenFactory.priceDecimals()).toString(), priceDecimals.toString());
 
@@ -53,7 +57,7 @@ describe("TokenFactory", () => {
     it("should get exception if try to call init function several times", async () => {
       const reason = "Initializable: contract is already initialized";
 
-      await truffleAssert.reverts(tokenFactory.__TokenFactory_init(8, ""), reason);
+      await truffleAssert.reverts(tokenFactory.__TokenFactory_init("", [ADMIN1, ADMIN2], 18), reason);
     });
   });
 
@@ -81,13 +85,13 @@ describe("TokenFactory", () => {
     const newBaseTokenURI = "new base token URI/";
 
     it("should correctly update base token URI", async () => {
-      await tokenFactory.updateBaseTokensURI(newBaseTokenURI);
+      await tokenFactory.updateBaseTokensURI(newBaseTokenURI, { from: ADMIN1 });
 
       assert.equal(await tokenFactory.baseTokensURI(), newBaseTokenURI);
     });
 
     it("should get exception if nonowner try to call this function", async () => {
-      const reason = "Ownable: caller is not the owner";
+      const reason = "TokenFactory: Only admin can call this function.";
 
       await truffleAssert.reverts(tokenFactory.updateBaseTokensURI(newBaseTokenURI, { from: USER1 }), reason);
     });
@@ -115,13 +119,51 @@ describe("TokenFactory", () => {
     });
   });
 
+  describe("updateAdmins", () => {
+    let adminsToAdd;
+
+    beforeEach("setup", async () => {
+      adminsToAdd = [await accounts(7), await accounts(8), await accounts(9)];
+    });
+
+    it("should correctly add new tokens", async () => {
+      let expectedArr = [ADMIN1, ADMIN2].concat(adminsToAdd);
+
+      await tokenFactory.updateAdmins(adminsToAdd, true);
+
+      assert.deepEqual(await tokenFactory.getAdmins(), expectedArr);
+    });
+
+    it("should correctly remove tokens", async () => {
+      await tokenFactory.updateAdmins(adminsToAdd, true);
+
+      let expectedArr = [ADMIN1, ADMIN2].concat(adminsToAdd[2]);
+
+      await tokenFactory.updateAdmins(adminsToAdd.slice(0, 2), false);
+
+      assert.deepEqual(await tokenFactory.getAdmins(), expectedArr);
+    });
+
+    it("should get exception if pass zero address", async () => {
+      const reason = "PoolFactory: Bad address.";
+
+      await truffleAssert.reverts(tokenFactory.updateAdmins(adminsToAdd.concat(ADDRESS_NULL), true), reason);
+    });
+
+    it("should get exception if non admin try to call this function", async () => {
+      const reason = "Ownable: caller is not the owner";
+
+      await truffleAssert.reverts(tokenFactory.updateAdmins(adminsToAdd, true, { from: USER1 }), reason);
+    });
+  });
+
   describe("deployTokenContract", async () => {
     it("should correctly deploy new TokenContract", async () => {
       const tokenName = "some name";
       const tokenSymbol = "some symbol";
       const pricePerOneToken = wei(10, priceDecimals);
 
-      const tx = await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken);
+      const tx = await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
 
       assert.equal(tx.receipt.logs[1].event, "TokenContractDeployed");
       assert.equal(tx.receipt.logs[1].args.newTokenContractAddr, await tokenFactory.getTokenContractByIndex(0));
@@ -133,17 +175,17 @@ describe("TokenFactory", () => {
     it("should get exception if pass invalid token name", async () => {
       const reason = "TokenFactory: Invalid token name.";
 
-      await truffleAssert.reverts(tokenFactory.deployTokenContract("", "some symbol", 0), reason);
+      await truffleAssert.reverts(tokenFactory.deployTokenContract("", "some symbol", 0, { from: ADMIN1 }), reason);
     });
 
     it("should get exception if pass invalid token symbol", async () => {
       const reason = "TokenFactory: Invalid token symbol.";
 
-      await truffleAssert.reverts(tokenFactory.deployTokenContract("some name", "", 0), reason);
+      await truffleAssert.reverts(tokenFactory.deployTokenContract("some name", "", 0, { from: ADMIN1 }), reason);
     });
 
     it("should get exception if nonowner try to call this function", async () => {
-      const reason = "Ownable: caller is not the owner";
+      const reason = "TokenFactory: Only admin can call this function.";
 
       await truffleAssert.reverts(
         tokenFactory.deployTokenContract("some name", "some symbol", 0, { from: USER1 }),
@@ -160,7 +202,7 @@ describe("TokenFactory", () => {
       const addressesArr = [];
 
       for (let i = 0; i < 5; i++) {
-        await tokenFactory.deployTokenContract(tokenName + i, tokenSymbol + i, pricePerOneToken);
+        await tokenFactory.deployTokenContract(tokenName + i, tokenSymbol + i, pricePerOneToken, { from: ADMIN1 });
         addressesArr.push(await tokenFactory.getTokenContractByIndex(i));
       }
 
