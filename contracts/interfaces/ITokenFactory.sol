@@ -4,6 +4,16 @@ pragma solidity ^0.8.9;
 import "@dlsl/dev-modules/pool-contracts-registry/ProxyBeacon.sol";
 
 interface ITokenFactory {
+    struct BaseTokenContractInfo {
+        address tokenContractAddr;
+        uint256 pricePerOneToken;
+    }
+
+    struct UserNFTsInfo {
+        address tokenContractAddr;
+        uint256[] tokenIDs;
+    }
+
     event TokenContractDeployed(
         address newTokenContractAddr,
         uint256 pricePerOneToken,
@@ -34,6 +44,16 @@ interface ITokenFactory {
     function poolsBeacon() external view returns (ProxyBeacon);
 
     function priceDecimals() external view returns (uint8);
+
+    function getBaseTokenContractsInfo(address[] memory tokenContractsArr_)
+        external
+        view
+        returns (BaseTokenContractInfo[] memory tokenContractsInfoArr_);
+
+    function getUserNFTsInfo(address userAddr_)
+        external
+        view
+        returns (UserNFTsInfo[] memory userNFTsInfoArr_);
 
     function getAdmins() external view returns (address[] memory);
 

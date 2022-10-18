@@ -1,4 +1,6 @@
 const { wei, accounts, toBN } = require("../scripts/helpers/utils");
+const { getCurrentBlockTime, setTime } = require("./helpers/hardhatTimeTraveller");
+const { sign2612 } = require("./helpers/signatures");
 
 const truffleAssert = require("truffle-assertions");
 const Reverter = require("./helpers/reverter");
@@ -16,8 +18,11 @@ describe("TokenFactory", () => {
   const reverter = new Reverter();
 
   const ADDRESS_NULL = "0x0000000000000000000000000000000000000000";
+  const OWNER_PK = "3473fa67faf1b0433c89babc1d7216f43c3019ae3f32fc848004d76d11e887b2";
 
   const priceDecimals = toBN(18);
+  const signDuration = 10000;
+  let defaultEndTime;
 
   let OWNER;
   let USER1;
@@ -26,6 +31,29 @@ describe("TokenFactory", () => {
 
   let tokenFactory;
   let tokenFactoryImpl;
+
+  function signMint({
+    tokenContract,
+    privateKey = OWNER_PK,
+    paymentTokenAddress = ADDRESS_NULL,
+    paymentTokenPrice = "0",
+    endTimestamp = defaultEndTime.toFixed(),
+  }) {
+    const buffer = Buffer.from(privateKey, "hex");
+
+    const domain = {
+      name: "some name",
+      verifyingContract: tokenContract,
+    };
+
+    const create = {
+      paymentTokenAddress,
+      paymentTokenPrice,
+      endTimestamp,
+    };
+
+    return sign2612(domain, create, buffer);
+  }
 
   before("setup", async () => {
     OWNER = await accounts(0);
@@ -47,6 +75,8 @@ describe("TokenFactory", () => {
     await tokenFactory.setNewImplementation(_tokenContractImpl.address);
 
     assert.equal(await tokenFactory.getTokenContractsImpl(), _tokenContractImpl.address);
+
+    defaultEndTime = toBN(await getCurrentBlockTime()).plus(signDuration);
 
     await reverter.snapshot();
   });
@@ -157,7 +187,7 @@ describe("TokenFactory", () => {
     });
   });
 
-  describe("deployTokenContract", async () => {
+  describe("deployTokenContract", () => {
     it("should correctly deploy new TokenContract", async () => {
       const tokenName = "some name";
       const tokenSymbol = "some symbol";
@@ -191,6 +221,83 @@ describe("TokenFactory", () => {
         tokenFactory.deployTokenContract("some name", "some symbol", 0, { from: USER1 }),
         reason
       );
+    });
+  });
+
+  describe("getBaseTokenContractsInfo", () => {
+    it("should return correct base token contracts info", async () => {
+      const tokenName = "some name";
+      const tokenSymbol = "some symbol";
+      let pricePerOneToken = wei(10, priceDecimals);
+
+      await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
+
+      pricePerOneToken = wei(20, priceDecimals);
+      await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
+
+      pricePerOneToken = wei(30, priceDecimals);
+      await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
+
+      const tokenContractsArr = await tokenFactory.getTokenContractsPart(0, 10);
+
+      const result = await tokenFactory.getBaseTokenContractsInfo(tokenContractsArr);
+
+      for (let i = 0; i < tokenContractsArr.length; i++) {
+        assert.equal(result[i].tokenContractAddr, tokenContractsArr[i]);
+        assert.equal(result[i].pricePerOneToken.toString(), wei(10 * (i + 1), priceDecimals).toFixed());
+      }
+    });
+  });
+
+  describe("getUserNFTsInfo", () => {
+    it("should return correct user NFTs info arr", async () => {
+      await tokenFactory.updateAdmins([OWNER], true);
+
+      const tokenName = "some name";
+      const tokenSymbol = "some symbol";
+      const pricePerOneToken = wei(10, priceDecimals);
+
+      await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
+      await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
+      await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
+
+      const tokenContractsArr = await tokenFactory.getTokenContractsPart(0, 10);
+
+      let sig = signMint({ tokenContract: tokenContractsArr[0] });
+
+      await (
+        await TokenContract.at(tokenContractsArr[0])
+      ).mintToken(ADDRESS_NULL, 0, defaultEndTime, sig.r, sig.s, sig.v, {
+        from: USER1,
+      });
+
+      await (
+        await TokenContract.at(tokenContractsArr[0])
+      ).mintToken(ADDRESS_NULL, 0, defaultEndTime, sig.r, sig.s, sig.v, {
+        from: USER1,
+      });
+
+      sig = signMint({ tokenContract: tokenContractsArr[2] });
+
+      await (
+        await TokenContract.at(tokenContractsArr[2])
+      ).mintToken(ADDRESS_NULL, 0, defaultEndTime, sig.r, sig.s, sig.v, {
+        from: USER1,
+      });
+
+      const result = await tokenFactory.getUserNFTsInfo(USER1);
+
+      assert.equal(result[0].tokenContractAddr, tokenContractsArr[0]);
+      assert.equal(result[0].tokenIDs.length, 2);
+      assert.equal(result[0].tokenIDs[0], "0");
+      assert.equal(result[0].tokenIDs[1], "1");
+
+      assert.equal(result[1].tokenContractAddr, tokenContractsArr[1]);
+      assert.equal(result[1].tokenIDs.length, 0);
+
+      assert.equal(result[2].tokenContractAddr, tokenContractsArr[2]);
+      assert.equal(result[2].tokenIDs.length, 1);
+      assert.equal(result[2].tokenIDs[0], "0");
     });
   });
 

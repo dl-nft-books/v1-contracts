@@ -99,6 +99,42 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
         return _tokenContracts.part(offset_, limit_);
     }
 
+    function getBaseTokenContractsInfo(address[] memory tokenContractsArr_)
+        external
+        view
+        override
+        returns (BaseTokenContractInfo[] memory tokenContractsInfoArr_)
+    {
+        tokenContractsInfoArr_ = new BaseTokenContractInfo[](tokenContractsArr_.length);
+
+        for (uint256 i = 0; i < tokenContractsArr_.length; i++) {
+            tokenContractsInfoArr_[i] = BaseTokenContractInfo(
+                tokenContractsArr_[i],
+                ITokenContract(tokenContractsArr_[i]).pricePerOneToken()
+            );
+        }
+    }
+
+    function getUserNFTsInfo(address userAddr_)
+        external
+        view
+        override
+        returns (UserNFTsInfo[] memory userNFTsInfoArr_)
+    {
+        uint256 tokenContractsCount_ = _tokenContracts.length();
+
+        userNFTsInfoArr_ = new UserNFTsInfo[](tokenContractsCount_);
+
+        for (uint256 i = 0; i < tokenContractsCount_; i++) {
+            address tokenContractAddr = _tokenContracts.at(i);
+
+            userNFTsInfoArr_[i] = UserNFTsInfo(
+                tokenContractAddr,
+                ITokenContract(tokenContractAddr).getUserTokenIDs(userAddr_)
+            );
+        }
+    }
+
     function getAdmins() external view override returns (address[] memory) {
         return _admins.values();
     }

@@ -37,4 +37,6 @@ interface ITokenContract {
         bytes32 s_,
         uint8 v_
     ) external payable;
+
+    function getUserTokenIDs(address userAddr_) external view returns (uint256[] memory tokenIDs_);
 }

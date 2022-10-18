@@ -108,6 +108,21 @@ contract TokenContract is
         emit TokenMinted(msg.sender, currentTokenId_);
     }
 
+    function getUserTokenIDs(address userAddr_)
+        external
+        view
+        override
+        returns (uint256[] memory tokenIDs_)
+    {
+        uint256 _tokensCount = balanceOf(userAddr_);
+
+        tokenIDs_ = new uint256[](_tokensCount);
+
+        for (uint256 i; i < _tokensCount; i++) {
+            tokenIDs_[i] = tokenOfOwnerByIndex(userAddr_, i);
+        }
+    }
+
     function owner() public view override returns (address) {
         return IOwnable(address(tokenFactory)).owner();
     }

@@ -333,6 +333,30 @@ describe("TokenContract", () => {
     });
   });
 
+  describe("getUserTokenIDs", () => {
+    it("should return correct user token IDs arr", async () => {
+      const sig = signMint({ paymentTokenPrice: "0" });
+
+      await tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, sig.r, sig.s, sig.v, {
+        from: USER1,
+      });
+
+      await tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, sig.r, sig.s, sig.v, {
+        from: USER2,
+      });
+
+      await tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, sig.r, sig.s, sig.v, {
+        from: USER1,
+      });
+
+      let tokenIDs = await tokenContract.getUserTokenIDs(USER1);
+      assert.deepEqual([tokenIDs[0].toString(), tokenIDs[1].toString()], ["0", "2"]);
+
+      tokenIDs = await tokenContract.getUserTokenIDs(USER2);
+      assert.deepEqual([tokenIDs[0].toString()], ["1"]);
+    });
+  });
+
   describe("owner", () => {
     it("should return correct owner address", async () => {
       assert.equal(await tokenContract.owner(), OWNER);
