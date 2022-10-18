@@ -34,7 +34,7 @@ describe("TokenFactory", () => {
 
     tokenFactory = await TokenFactory.at(_tokenFactoryProxy.address);
 
-    await tokenFactory.__TokenFactory_init(18);
+    await tokenFactory.__TokenFactory_init(18, "");
 
     assert.equal((await tokenFactory.priceDecimals()).toString(), priceDecimals.toString());
 
@@ -53,7 +53,7 @@ describe("TokenFactory", () => {
     it("should get exception if try to call init function several times", async () => {
       const reason = "Initializable: contract is already initialized";
 
-      await truffleAssert.reverts(tokenFactory.__TokenFactory_init(8), reason);
+      await truffleAssert.reverts(tokenFactory.__TokenFactory_init(8, ""), reason);
     });
   });
 
@@ -74,6 +74,22 @@ describe("TokenFactory", () => {
       const reason = "Ownable: caller is not the owner";
 
       await truffleAssert.reverts(tokenFactory.upgradeTo(_newTokenFactoryImpl.address, { from: USER1 }), reason);
+    });
+  });
+
+  describe("updateBaseTokensURI", () => {
+    const newBaseTokenURI = "new base token URI/";
+
+    it("should correctly update base token URI", async () => {
+      await tokenFactory.updateBaseTokensURI(newBaseTokenURI);
+
+      assert.equal(await tokenFactory.baseTokensURI(), newBaseTokenURI);
+    });
+
+    it("should get exception if nonowner try to call this function", async () => {
+      const reason = "Ownable: caller is not the owner";
+
+      await truffleAssert.reverts(tokenFactory.updateBaseTokensURI(newBaseTokenURI, { from: USER1 }), reason);
     });
   });
 

@@ -18,14 +18,24 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
 
     ProxyBeacon public override poolsBeacon;
     uint8 public override priceDecimals;
+    string public override baseTokensURI;
 
     EnumerableSet.AddressSet internal _tokenContracts;
 
-    function __TokenFactory_init(uint8 priceDecimals_) external override initializer {
+    function __TokenFactory_init(uint8 priceDecimals_, string memory baseTokensURI_)
+        external
+        override
+        initializer
+    {
         __Ownable_init();
 
         poolsBeacon = new ProxyBeacon();
         priceDecimals = priceDecimals_;
+        baseTokensURI = baseTokensURI_;
+    }
+
+    function updateBaseTokensURI(string memory baseTokensURI_) external override onlyOwner {
+        baseTokensURI = baseTokensURI_;
     }
 
     function setNewImplementation(address newImplementation_) external override onlyOwner {
@@ -39,8 +49,8 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
         string memory tokenSymbol_,
         uint256 pricePerOneToken_
     ) external override onlyOwner {
-        require(bytes(tokenName_).length > 0, "TokenFactory: Invalid token name.");
-        require(bytes(tokenSymbol_).length > 0, "TokenFactory: Invalid token symbol.");
+        _nonEmptyString(tokenName_, "token name");
+        _nonEmptyString(tokenSymbol_, "token symbol");
 
         address newTokenContract_ = address(new PublicBeaconProxy(address(poolsBeacon), ""));
 
@@ -74,4 +84,11 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function _authorizeUpgrade(address newImplementation_) internal override onlyOwner {}
+
+    function _nonEmptyString(string memory str_, string memory fieldName_) internal pure {
+        require(
+            bytes(str_).length > 0,
+            string(abi.encodePacked("TokenFactory: Invalid ", fieldName_, "."))
+        );
+    }
 }

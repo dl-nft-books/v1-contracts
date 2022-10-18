@@ -8,6 +8,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "@dlsl/dev-modules/libs/decimals/DecimalsConverter.sol";
 import "@dlsl/dev-modules/utils/Globals.sol";
@@ -26,19 +27,17 @@ contract TokenContract is
 {
     using DecimalsConverter for uint256;
     using SafeERC20 for IERC20Metadata;
+    using Strings for uint256;
 
     bytes32 internal constant _MINT_TYPEHASH =
         keccak256(
-            "Mint(address paymentTokenAddress,uint256 paymentTokenPrice,uint256 endTimestamp,bytes32 tokenURI)"
+            "Mint(address paymentTokenAddress,uint256 paymentTokenPrice,uint256 endTimestamp)"
         );
 
     ITokenFactory public override tokenFactory;
     uint256 public override pricePerOneToken;
 
     uint256 internal _tokenId;
-
-    mapping(string => bool) public existingTokenURIs;
-    mapping(uint256 => string) internal _tokenURIs;
 
     modifier onlyOwner() {
         require(msg.sender == owner(), "TokenContract: Only owner can call this function.");
@@ -76,21 +75,12 @@ contract TokenContract is
         address paymentTokenAddress_,
         uint256 paymentTokenPrice_,
         uint256 endTimestamp_,
-        string memory tokenURI_,
         bytes32 r_,
         bytes32 s_,
         uint8 v_
     ) external payable override whenNotPaused nonReentrant {
-        require(!existingTokenURIs[tokenURI_], "TokenContract: Token URI already exists.");
-
         bytes32 structHash_ = keccak256(
-            abi.encode(
-                _MINT_TYPEHASH,
-                paymentTokenAddress_,
-                paymentTokenPrice_,
-                endTimestamp_,
-                keccak256(abi.encodePacked(tokenURI_))
-            )
+            abi.encode(_MINT_TYPEHASH, paymentTokenAddress_, paymentTokenPrice_, endTimestamp_)
         );
 
         address signer_ = ECDSA.recover(_hashTypedDataV4(structHash_), v_, r_, s_);
@@ -111,10 +101,8 @@ contract TokenContract is
         uint256 currentTokenId_ = _tokenId++;
 
         _mint(msg.sender, currentTokenId_);
-        _tokenURIs[currentTokenId_] = tokenURI_;
-        existingTokenURIs[tokenURI_] = true;
 
-        emit TokenMinted(msg.sender, currentTokenId_, tokenURI_);
+        emit TokenMinted(msg.sender, currentTokenId_);
     }
 
     function owner() public view override returns (address) {
@@ -124,7 +112,19 @@ contract TokenContract is
     function tokenURI(uint256 tokenId_) public view override returns (string memory) {
         require(_exists(tokenId_), "TokenContract: URI query for nonexistent token.");
 
-        return _tokenURIs[tokenId_];
+        string memory baseURI_ = _baseURI();
+
+        return
+            bytes(baseURI_).length > 0
+                ? string(
+                    abi.encodePacked(
+                        baseURI_,
+                        Strings.toHexString(uint256(uint160(address(this))), 20),
+                        "/",
+                        tokenId_.toString()
+                    )
+                )
+                : "";
     }
 
     function _payWithERC20(IERC20Metadata tokenAddr_, uint256 tokenPrice_) internal {
@@ -152,5 +152,9 @@ contract TokenContract is
         }
 
         emit ETHPaymentSuccessful(amountToPay_, ethPrice_);
+    }
+
+    function _baseURI() internal view override returns (string memory) {
+        return tokenFactory.baseTokensURI();
     }
 }

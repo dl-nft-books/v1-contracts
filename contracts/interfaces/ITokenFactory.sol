@@ -11,7 +11,11 @@ interface ITokenFactory {
         string tokenSymbol
     );
 
-    function __TokenFactory_init(uint8 priceDecimals_) external;
+    function __TokenFactory_init(uint8 priceDecimals_, string memory baseTokensURI_) external;
+
+    function baseTokensURI() external view returns (string memory);
+
+    function updateBaseTokensURI(string memory baseTokensURI_) external;
 
     function setNewImplementation(address newImplementation_) external;
 
