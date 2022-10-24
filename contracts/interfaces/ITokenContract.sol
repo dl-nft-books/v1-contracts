@@ -4,12 +4,7 @@ pragma solidity ^0.8.9;
 import "./ITokenFactory.sol";
 
 interface ITokenContract {
-    event ERC20PaymentSuccessful(
-        address indexed tokenAddress,
-        uint256 tokenAmount,
-        uint256 tokenPrice
-    );
-    event ETHPaymentSuccessful(uint256 ethAmount, uint256 ethPrice);
+    event PaymentSuccessful(address indexed tokenAddress, uint256 tokenAmount, uint256 tokenPrice);
     event TokenMinted(address indexed recipient, uint256 tokenId);
 
     function __TokenContract_init(

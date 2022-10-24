@@ -211,9 +211,10 @@ describe("TokenContract", () => {
         wei(0.001).toNumber()
       );
 
-      assert.equal(tx.receipt.logs[0].event, "ETHPaymentSuccessful");
-      assert.equal(toBN(tx.receipt.logs[0].args.ethAmount).toFixed(), expectedCurrencyCount.toFixed());
-      assert.equal(toBN(tx.receipt.logs[0].args.ethPrice).toFixed(), tokenPrice.toFixed());
+      assert.equal(tx.receipt.logs[0].event, "PaymentSuccessful");
+      assert.equal(tx.receipt.logs[0].args.tokenAddress, ADDRESS_NULL);
+      assert.equal(toBN(tx.receipt.logs[0].args.tokenAmount).toFixed(), expectedCurrencyCount.toFixed());
+      assert.equal(toBN(tx.receipt.logs[0].args.tokenPrice).toFixed(), tokenPrice.toFixed());
     });
 
     it("should correctly pay with ETH without extra currency", async () => {
@@ -253,7 +254,7 @@ describe("TokenContract", () => {
       );
       assert.equal(await tokenContract.ownerOf(0), USER1);
 
-      assert.equal(tx.receipt.logs[0].event, "ERC20PaymentSuccessful");
+      assert.equal(tx.receipt.logs[0].event, "PaymentSuccessful");
       assert.equal(tx.receipt.logs[0].args.tokenAddress, paymentToken.address);
       assert.equal(toBN(tx.receipt.logs[0].args.tokenAmount).toFixed(), expectedTokensCount.toFixed());
       assert.equal(toBN(tx.receipt.logs[0].args.tokenPrice).toFixed(), tokenPrice.toFixed());
