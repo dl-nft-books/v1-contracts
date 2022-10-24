@@ -9,6 +9,7 @@ contract Attacker {
         address paymentTokenAddress;
         uint256 paymentTokenPrice;
         uint256 endTimestamp;
+        string tokenURI;
         bytes32 r;
         bytes32 s;
         uint8 v;
@@ -32,6 +33,7 @@ contract Attacker {
                 params.paymentTokenAddress,
                 params.paymentTokenPrice,
                 params.endTimestamp,
+                params.tokenURI,
                 params.r,
                 params.s,
                 params.v
@@ -44,6 +46,7 @@ contract Attacker {
             params.paymentTokenAddress,
             params.paymentTokenPrice,
             params.endTimestamp,
+            params.tokenURI,
             params.r,
             params.s,
             params.v

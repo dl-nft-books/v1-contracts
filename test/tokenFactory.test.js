@@ -22,6 +22,7 @@ describe("TokenFactory", () => {
 
   const priceDecimals = toBN(18);
   const signDuration = 10000;
+  const defaultTokenURI = "some uri";
   let defaultEndTime;
 
   let OWNER;
@@ -38,6 +39,7 @@ describe("TokenFactory", () => {
     paymentTokenAddress = ADDRESS_NULL,
     paymentTokenPrice = "0",
     endTimestamp = defaultEndTime.toFixed(),
+    tokenURI = defaultTokenURI,
   }) {
     const buffer = Buffer.from(privateKey, "hex");
 
@@ -50,6 +52,7 @@ describe("TokenFactory", () => {
       paymentTokenAddress,
       paymentTokenPrice,
       endTimestamp,
+      tokenURI: web3.utils.soliditySha3(tokenURI),
     };
 
     return sign2612(domain, create, buffer);
@@ -66,7 +69,7 @@ describe("TokenFactory", () => {
 
     tokenFactory = await TokenFactory.at(_tokenFactoryProxy.address);
 
-    await tokenFactory.__TokenFactory_init("", [ADMIN1, ADMIN2], 18);
+    await tokenFactory.__TokenFactory_init([ADMIN1, ADMIN2], 18);
 
     assert.equal((await tokenFactory.priceDecimals()).toString(), priceDecimals.toString());
 
@@ -87,7 +90,7 @@ describe("TokenFactory", () => {
     it("should get exception if try to call init function several times", async () => {
       const reason = "Initializable: contract is already initialized";
 
-      await truffleAssert.reverts(tokenFactory.__TokenFactory_init("", [ADMIN1, ADMIN2], 18), reason);
+      await truffleAssert.reverts(tokenFactory.__TokenFactory_init([ADMIN1, ADMIN2], 18), reason);
     });
   });
 
@@ -108,22 +111,6 @@ describe("TokenFactory", () => {
       const reason = "Ownable: caller is not the owner";
 
       await truffleAssert.reverts(tokenFactory.upgradeTo(_newTokenFactoryImpl.address, { from: USER1 }), reason);
-    });
-  });
-
-  describe("updateBaseTokensURI", () => {
-    const newBaseTokenURI = "new base token URI/";
-
-    it("should correctly update base token URI", async () => {
-      await tokenFactory.updateBaseTokensURI(newBaseTokenURI, { from: ADMIN1 });
-
-      assert.equal(await tokenFactory.baseTokensURI(), newBaseTokenURI);
-    });
-
-    it("should get exception if nonowner try to call this function", async () => {
-      const reason = "TokenFactory: Only admin can call this function.";
-
-      await truffleAssert.reverts(tokenFactory.updateBaseTokensURI(newBaseTokenURI, { from: USER1 }), reason);
     });
   });
 
@@ -267,21 +254,23 @@ describe("TokenFactory", () => {
 
       await (
         await TokenContract.at(tokenContractsArr[0])
-      ).mintToken(ADDRESS_NULL, 0, defaultEndTime, sig.r, sig.s, sig.v, {
+      ).mintToken(ADDRESS_NULL, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
         from: USER1,
       });
+
+      sig = signMint({ tokenContract: tokenContractsArr[0], tokenURI: defaultTokenURI + 1 });
 
       await (
         await TokenContract.at(tokenContractsArr[0])
-      ).mintToken(ADDRESS_NULL, 0, defaultEndTime, sig.r, sig.s, sig.v, {
+      ).mintToken(ADDRESS_NULL, 0, defaultEndTime, defaultTokenURI + 1, sig.r, sig.s, sig.v, {
         from: USER1,
       });
 
-      sig = signMint({ tokenContract: tokenContractsArr[2] });
+      sig = signMint({ tokenContract: tokenContractsArr[2], tokenURI: defaultTokenURI + 2 });
 
       await (
         await TokenContract.at(tokenContractsArr[2])
-      ).mintToken(ADDRESS_NULL, 0, defaultEndTime, sig.r, sig.s, sig.v, {
+      ).mintToken(ADDRESS_NULL, 0, defaultEndTime, defaultTokenURI + 2, sig.r, sig.s, sig.v, {
         from: USER1,
       });
 

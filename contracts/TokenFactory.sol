@@ -18,7 +18,6 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
 
     ProxyBeacon public override poolsBeacon;
     uint8 public override priceDecimals;
-    string public override baseTokensURI;
 
     EnumerableSet.AddressSet internal _tokenContracts;
     EnumerableSet.AddressSet internal _admins;
@@ -28,15 +27,14 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
         _;
     }
 
-    function __TokenFactory_init(
-        string memory baseTokensURI_,
-        address[] memory adminsArr_,
-        uint8 priceDecimals_
-    ) external override initializer {
+    function __TokenFactory_init(address[] memory adminsArr_, uint8 priceDecimals_)
+        external
+        override
+        initializer
+    {
         __Ownable_init();
 
         poolsBeacon = new ProxyBeacon();
-        baseTokensURI = baseTokensURI_;
         priceDecimals = priceDecimals_;
 
         _updateAddressSet(_admins, adminsArr_, true);
@@ -54,10 +52,6 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
         onlyOwner
     {
         _updateAddressSet(_admins, adminsToUpdate_, isAdding_);
-    }
-
-    function updateBaseTokensURI(string memory baseTokensURI_) external override onlyAdmin {
-        baseTokensURI = baseTokensURI_;
     }
 
     function deployTokenContract(
