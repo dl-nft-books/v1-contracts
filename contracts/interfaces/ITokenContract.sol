@@ -4,12 +4,7 @@ pragma solidity ^0.8.9;
 import "./ITokenFactory.sol";
 
 interface ITokenContract {
-    event ERC20PaymentSuccessful(
-        address indexed tokenAddress,
-        uint256 tokenAmount,
-        uint256 tokenPrice
-    );
-    event ETHPaymentSuccessful(uint256 ethAmount, uint256 ethPrice);
+    event PaymentSuccessful(address indexed tokenAddress, uint256 tokenAmount, uint256 tokenPrice);
     event TokenMinted(address indexed recipient, uint256 tokenId, string tokenURI);
 
     function __TokenContract_init(
@@ -22,6 +17,8 @@ interface ITokenContract {
     function tokenFactory() external view returns (ITokenFactory);
 
     function pricePerOneToken() external view returns (uint256);
+
+    function existingTokenURIs(string memory tokenURI_) external view returns (bool);
 
     function updatePricePerOneToken(uint256 newPrice_) external;
 
@@ -38,4 +35,6 @@ interface ITokenContract {
         bytes32 s_,
         uint8 v_
     ) external payable;
+
+    function getUserTokenIDs(address userAddr_) external view returns (uint256[] memory tokenIDs_);
 }

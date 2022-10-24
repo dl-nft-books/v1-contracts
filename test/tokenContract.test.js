@@ -30,7 +30,7 @@ describe("TokenContract", () => {
   const pricePerOneToken = wei(100);
   const tokenPrice = wei(500);
   const signDuration = 10000;
-  const defauldTokenURI = "some uri";
+  const defaultTokenURI = "some uri";
   let defaultEndTime;
 
   let OWNER;
@@ -48,7 +48,7 @@ describe("TokenContract", () => {
     paymentTokenAddress = paymentToken.address,
     paymentTokenPrice = tokenPrice.toFixed(),
     endTimestamp = defaultEndTime.toFixed(),
-    tokenURI = defauldTokenURI,
+    tokenURI = defaultTokenURI,
   }) {
     const buffer = Buffer.from(privateKey, "hex");
 
@@ -80,7 +80,7 @@ describe("TokenContract", () => {
 
     tokenFactory = await TokenFactory.at(_tokenFactoryProxy.address);
 
-    await tokenFactory.__TokenFactory_init(priceDecimals);
+    await tokenFactory.__TokenFactory_init([OWNER], priceDecimals);
 
     assert.equal((await tokenFactory.priceDecimals()).toString(), priceDecimals.toString());
 
@@ -128,8 +128,8 @@ describe("TokenContract", () => {
       assert.equal((await tokenContract.pricePerOneToken()).toFixed(), newPrice.toFixed());
     });
 
-    it("should get exception if nonowner try to call this function", async () => {
-      const reason = "TokenContract: Only owner can call this function.";
+    it("should get exception if non admin try to call this function", async () => {
+      const reason = "TokenContract: Only admin can call this function.";
 
       await truffleAssert.reverts(tokenContract.updatePricePerOneToken(newPrice, { from: USER1 }), reason);
     });
@@ -144,7 +144,7 @@ describe("TokenContract", () => {
       const sig = signMint({ paymentTokenPrice: "0" });
 
       await truffleAssert.reverts(
-        tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, defauldTokenURI, sig.r, sig.s, sig.v, {
+        tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
           from: USER1,
         }),
         reason
@@ -152,16 +152,16 @@ describe("TokenContract", () => {
 
       await tokenContract.unpause();
 
-      await tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, defauldTokenURI, sig.r, sig.s, sig.v, {
+      await tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
         from: USER1,
       });
 
-      assert.equal(await tokenContract.tokenURI(0), defauldTokenURI);
+      assert.equal(await tokenContract.tokenURI(0), defaultTokenURI);
       assert.equal(await tokenContract.ownerOf(0), USER1);
     });
 
-    it("should get exception if non owner try to call this function", async () => {
-      const reason = "TokenContract: Only owner can call this function.";
+    it("should get exception if non admin try to call this function", async () => {
+      const reason = "TokenContract: Only admin can call this function.";
 
       await truffleAssert.reverts(tokenContract.pause({ from: USER1 }), reason);
       await truffleAssert.reverts(tokenContract.unpause({ from: USER1 }), reason);
@@ -176,31 +176,30 @@ describe("TokenContract", () => {
         paymentToken.address,
         0,
         defaultEndTime,
-        defauldTokenURI,
+        defaultTokenURI,
         sig.r,
         sig.s,
         sig.v,
-        { from: USER1 }
+        {
+          from: USER1,
+        }
       );
 
       assert.equal(tx.receipt.logs[1].event, "TokenMinted");
       assert.equal(tx.receipt.logs[1].args.recipient, USER1);
       assert.equal(toBN(tx.receipt.logs[1].args.tokenId).toFixed(), 0);
-      assert.equal(tx.receipt.logs[1].args.tokenURI, defauldTokenURI);
 
-      assert.equal(await tokenContract.tokenURI(0), defauldTokenURI);
+      assert.equal(await tokenContract.tokenURI(0), defaultTokenURI);
       assert.equal(await tokenContract.ownerOf(0), USER1);
 
-      const tokenURI = "new token uri";
+      const newTokenURI = "new token URI";
+      sig = signMint({ paymentTokenPrice: "0", tokenURI: newTokenURI });
 
-      sig = signMint({ paymentTokenPrice: "0", tokenURI: tokenURI });
-
-      await tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, tokenURI, sig.r, sig.s, sig.v, {
+      await tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, newTokenURI, sig.r, sig.s, sig.v, {
         from: USER1,
       });
 
-      assert.equal(await tokenContract.existingTokenURIs(tokenURI), true);
-      assert.equal(await tokenContract.tokenURI(1), tokenURI);
+      assert.equal(await tokenContract.tokenURI(1), newTokenURI);
       assert.equal(await tokenContract.ownerOf(1), USER1);
       assert.equal(await tokenContract.balanceOf(USER1), 2);
     });
@@ -215,11 +214,14 @@ describe("TokenContract", () => {
         ADDRESS_NULL,
         tokenPrice,
         defaultEndTime,
-        defauldTokenURI,
+        defaultTokenURI,
         sig.r,
         sig.s,
         sig.v,
-        { from: USER1, value: expectedCurrencyCount.times(1.5) }
+        {
+          from: USER1,
+          value: expectedCurrencyCount.times(1.5),
+        }
       );
 
       const balanceAfter = toBN(await web3.eth.getBalance(USER1));
@@ -230,9 +232,10 @@ describe("TokenContract", () => {
         wei(0.001).toNumber()
       );
 
-      assert.equal(tx.receipt.logs[0].event, "ETHPaymentSuccessful");
-      assert.equal(toBN(tx.receipt.logs[0].args.ethAmount).toFixed(), expectedCurrencyCount.toFixed());
-      assert.equal(toBN(tx.receipt.logs[0].args.ethPrice).toFixed(), tokenPrice.toFixed());
+      assert.equal(tx.receipt.logs[0].event, "PaymentSuccessful");
+      assert.equal(tx.receipt.logs[0].args.tokenAddress, ADDRESS_NULL);
+      assert.equal(toBN(tx.receipt.logs[0].args.tokenAmount).toFixed(), expectedCurrencyCount.toFixed());
+      assert.equal(toBN(tx.receipt.logs[0].args.tokenPrice).toFixed(), tokenPrice.toFixed());
     });
 
     it("should correctly pay with ETH without extra currency", async () => {
@@ -241,7 +244,7 @@ describe("TokenContract", () => {
       const sig = signMint({ paymentTokenAddress: ADDRESS_NULL });
       const expectedCurrencyCount = pricePerOneToken.times(wei(1)).idiv(tokenPrice);
 
-      await tokenContract.mintToken(ADDRESS_NULL, tokenPrice, defaultEndTime, defauldTokenURI, sig.r, sig.s, sig.v, {
+      await tokenContract.mintToken(ADDRESS_NULL, tokenPrice, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
         from: USER1,
         value: expectedCurrencyCount,
       });
@@ -253,7 +256,8 @@ describe("TokenContract", () => {
         expectedCurrencyCount.toNumber(),
         wei(0.001).toNumber()
       );
-      assert.equal(await tokenContract.tokenURI(0), defauldTokenURI);
+
+      assert.equal(await tokenContract.tokenURI(0), defaultTokenURI);
       assert.equal(await tokenContract.ownerOf(0), USER1);
     });
 
@@ -265,11 +269,13 @@ describe("TokenContract", () => {
         paymentToken.address,
         tokenPrice,
         defaultEndTime,
-        defauldTokenURI,
+        defaultTokenURI,
         sig.r,
         sig.s,
         sig.v,
-        { from: USER1 }
+        {
+          from: USER1,
+        }
       );
 
       assert.equal(
@@ -278,7 +284,7 @@ describe("TokenContract", () => {
       );
       assert.equal(await tokenContract.ownerOf(0), USER1);
 
-      assert.equal(tx.receipt.logs[0].event, "ERC20PaymentSuccessful");
+      assert.equal(tx.receipt.logs[0].event, "PaymentSuccessful");
       assert.equal(tx.receipt.logs[0].args.tokenAddress, paymentToken.address);
       assert.equal(toBN(tx.receipt.logs[0].args.tokenAmount).toFixed(), expectedTokensCount.toFixed());
       assert.equal(toBN(tx.receipt.logs[0].args.tokenPrice).toFixed(), tokenPrice.toFixed());
@@ -295,44 +301,13 @@ describe("TokenContract", () => {
         ADDRESS_NULL,
         tokenPrice,
         defaultEndTime,
-        defauldTokenURI,
+        defaultTokenURI,
         sig.r,
         sig.s,
         sig.v,
       ]);
 
       await truffleAssert.reverts(attacker.mintToken({ from: USER1, value: expectedCurrencyCount.times(2) }), reason);
-    });
-
-    it("should get exception if try to mint new token with the same token URI", async () => {
-      const reason = "TokenContract: Token URI already exists.";
-
-      const sig = signMint({});
-
-      await tokenContract.mintToken(
-        paymentToken.address,
-        tokenPrice,
-        defaultEndTime,
-        defauldTokenURI,
-        sig.r,
-        sig.s,
-        sig.v,
-        { from: USER1 }
-      );
-
-      await truffleAssert.reverts(
-        tokenContract.mintToken(
-          paymentToken.address,
-          tokenPrice,
-          defaultEndTime,
-          defauldTokenURI,
-          sig.r,
-          sig.s,
-          sig.v,
-          { from: USER1 }
-        ),
-        reason
-      );
     });
 
     it("should get exception if try to send currency when user needs to pay with ERC20", async () => {
@@ -346,11 +321,14 @@ describe("TokenContract", () => {
           paymentToken.address,
           tokenPrice,
           defaultEndTime,
-          defauldTokenURI,
+          defaultTokenURI,
           sig.r,
           sig.s,
           sig.v,
-          { from: USER1, value: expectedTokensCount }
+          {
+            from: USER1,
+            value: expectedTokensCount,
+          }
         ),
         reason
       );
@@ -363,10 +341,41 @@ describe("TokenContract", () => {
       const expectedCurrencyCount = pricePerOneToken.times(wei(1)).idiv(tokenPrice);
 
       await truffleAssert.reverts(
-        tokenContract.mintToken(ADDRESS_NULL, tokenPrice, defaultEndTime, defauldTokenURI, sig.r, sig.s, sig.v, {
+        tokenContract.mintToken(ADDRESS_NULL, tokenPrice, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
           from: USER1,
           value: expectedCurrencyCount.idiv(2),
         }),
+        reason
+      );
+    });
+
+    it("should get exception if try to mint new token with the same token URI", async () => {
+      const reason = "TokenContract: Token URI already exists.";
+
+      const sig = signMint({});
+
+      await tokenContract.mintToken(
+        paymentToken.address,
+        tokenPrice,
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        { from: USER1 }
+      );
+
+      await truffleAssert.reverts(
+        tokenContract.mintToken(
+          paymentToken.address,
+          tokenPrice,
+          defaultEndTime,
+          defaultTokenURI,
+          sig.r,
+          sig.s,
+          sig.v,
+          { from: USER1 }
+        ),
         reason
       );
     });
@@ -381,7 +390,7 @@ describe("TokenContract", () => {
           paymentToken.address,
           tokenPrice,
           defaultEndTime,
-          defauldTokenURI,
+          defaultTokenURI,
           sig.r,
           sig.s,
           sig.v,
@@ -403,7 +412,7 @@ describe("TokenContract", () => {
           paymentToken.address,
           tokenPrice,
           defaultEndTime,
-          defauldTokenURI,
+          defaultTokenURI,
           sig.r,
           sig.s,
           sig.v,
@@ -414,16 +423,49 @@ describe("TokenContract", () => {
     });
   });
 
-  describe("tokenURI", () => {
-    it("should return correct token URI string", async () => {
-      const tokenURI = "new token uri";
-      const sig = signMint({ paymentTokenPrice: "0", tokenURI: tokenURI });
+  describe("getUserTokenIDs", () => {
+    it("should return correct user token IDs arr", async () => {
+      let sig = signMint({ paymentTokenPrice: "0" });
 
-      await tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, tokenURI, sig.r, sig.s, sig.v, {
+      await tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
         from: USER1,
       });
 
-      assert.equal(await tokenContract.tokenURI(0), tokenURI);
+      sig = signMint({ paymentTokenPrice: "0", tokenURI: defaultTokenURI + 1 });
+
+      await tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, defaultTokenURI + 1, sig.r, sig.s, sig.v, {
+        from: USER2,
+      });
+
+      sig = signMint({ paymentTokenPrice: "0", tokenURI: defaultTokenURI + 2 });
+
+      await tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, defaultTokenURI + 2, sig.r, sig.s, sig.v, {
+        from: USER1,
+      });
+
+      let tokenIDs = await tokenContract.getUserTokenIDs(USER1);
+      assert.deepEqual([tokenIDs[0].toString(), tokenIDs[1].toString()], ["0", "2"]);
+
+      tokenIDs = await tokenContract.getUserTokenIDs(USER2);
+      assert.deepEqual([tokenIDs[0].toString()], ["1"]);
+    });
+  });
+
+  describe("owner", () => {
+    it("should return correct owner address", async () => {
+      assert.equal(await tokenContract.owner(), OWNER);
+    });
+  });
+
+  describe("tokenURI", () => {
+    it("should return correct token URI string", async () => {
+      const sig = signMint({ paymentTokenPrice: "0" });
+
+      await tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
+        from: USER1,
+      });
+
+      assert.equal(await tokenContract.tokenURI(0), defaultTokenURI);
     });
 
     it("should get exception if token does not exist", async () => {

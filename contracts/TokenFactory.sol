@@ -20,12 +20,24 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
     uint8 public override priceDecimals;
 
     EnumerableSet.AddressSet internal _tokenContracts;
+    EnumerableSet.AddressSet internal _admins;
 
-    function __TokenFactory_init(uint8 priceDecimals_) external override initializer {
+    modifier onlyAdmin() {
+        require(isAdmin(msg.sender), "TokenFactory: Only admin can call this function.");
+        _;
+    }
+
+    function __TokenFactory_init(address[] memory adminsArr_, uint8 priceDecimals_)
+        external
+        override
+        initializer
+    {
         __Ownable_init();
 
         poolsBeacon = new ProxyBeacon();
         priceDecimals = priceDecimals_;
+
+        _updateAddressSet(_admins, adminsArr_, true);
     }
 
     function setNewImplementation(address newImplementation_) external override onlyOwner {
@@ -34,13 +46,21 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
         }
     }
 
+    function updateAdmins(address[] calldata adminsToUpdate_, bool isAdding_)
+        external
+        override
+        onlyOwner
+    {
+        _updateAddressSet(_admins, adminsToUpdate_, isAdding_);
+    }
+
     function deployTokenContract(
         string memory tokenName_,
         string memory tokenSymbol_,
         uint256 pricePerOneToken_
-    ) external override onlyOwner {
-        require(bytes(tokenName_).length > 0, "TokenFactory: Invalid token name.");
-        require(bytes(tokenSymbol_).length > 0, "TokenFactory: Invalid token symbol.");
+    ) external override onlyAdmin {
+        _nonEmptyString(tokenName_, "token name");
+        _nonEmptyString(tokenSymbol_, "token symbol");
 
         address newTokenContract_ = address(new PublicBeaconProxy(address(poolsBeacon), ""));
 
@@ -73,5 +93,72 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
         return _tokenContracts.part(offset_, limit_);
     }
 
+    function getBaseTokenContractsInfo(address[] memory tokenContractsArr_)
+        external
+        view
+        override
+        returns (BaseTokenContractInfo[] memory tokenContractsInfoArr_)
+    {
+        tokenContractsInfoArr_ = new BaseTokenContractInfo[](tokenContractsArr_.length);
+
+        for (uint256 i = 0; i < tokenContractsArr_.length; i++) {
+            tokenContractsInfoArr_[i] = BaseTokenContractInfo(
+                tokenContractsArr_[i],
+                ITokenContract(tokenContractsArr_[i]).pricePerOneToken()
+            );
+        }
+    }
+
+    function getUserNFTsInfo(address userAddr_)
+        external
+        view
+        override
+        returns (UserNFTsInfo[] memory userNFTsInfoArr_)
+    {
+        uint256 tokenContractsCount_ = _tokenContracts.length();
+
+        userNFTsInfoArr_ = new UserNFTsInfo[](tokenContractsCount_);
+
+        for (uint256 i = 0; i < tokenContractsCount_; i++) {
+            address tokenContractAddr = _tokenContracts.at(i);
+
+            userNFTsInfoArr_[i] = UserNFTsInfo(
+                tokenContractAddr,
+                ITokenContract(tokenContractAddr).getUserTokenIDs(userAddr_)
+            );
+        }
+    }
+
+    function getAdmins() external view override returns (address[] memory) {
+        return _admins.values();
+    }
+
+    function isAdmin(address userAddr_) public view override returns (bool) {
+        return _admins.contains(userAddr_);
+    }
+
+    function _updateAddressSet(
+        EnumerableSet.AddressSet storage addressSet,
+        address[] memory addressesToUpdate_,
+        bool isAdding_
+    ) internal {
+        for (uint256 i; i < addressesToUpdate_.length; i++) {
+            if (isAdding_) {
+                require(addressesToUpdate_[i] != address(0), "PoolFactory: Bad address.");
+
+                addressSet.add(addressesToUpdate_[i]);
+            } else {
+                addressSet.remove(addressesToUpdate_[i]);
+            }
+        }
+    }
+
     function _authorizeUpgrade(address newImplementation_) internal override onlyOwner {}
+
+    function _nonEmptyString(string memory str_, string memory fieldName_) internal pure {
+        require(
+            bytes(str_).length > 0,
+            string(abi.encodePacked("TokenFactory: Invalid ", fieldName_, "."))
+        );
+    }
 }

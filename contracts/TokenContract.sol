@@ -37,11 +37,14 @@ contract TokenContract is
 
     uint256 internal _tokenId;
 
-    mapping(string => bool) public existingTokenURIs;
+    mapping(string => bool) public override existingTokenURIs;
     mapping(uint256 => string) internal _tokenURIs;
 
-    modifier onlyOwner() {
-        require(msg.sender == owner(), "TokenContract: Only owner can call this function.");
+    modifier onlyAdmin() {
+        require(
+            tokenFactory.isAdmin(msg.sender),
+            "TokenContract: Only admin can call this function."
+        );
         _;
     }
 
@@ -60,15 +63,15 @@ contract TokenContract is
         pricePerOneToken = pricePerOneToken_;
     }
 
-    function updatePricePerOneToken(uint256 newPrice_) external override onlyOwner {
+    function updatePricePerOneToken(uint256 newPrice_) external override onlyAdmin {
         pricePerOneToken = newPrice_;
     }
 
-    function pause() external override onlyOwner {
+    function pause() external override onlyAdmin {
         _pause();
     }
 
-    function unpause() external override onlyOwner {
+    function unpause() external override onlyAdmin {
         _unpause();
     }
 
@@ -94,7 +97,7 @@ contract TokenContract is
         );
 
         address signer_ = ECDSA.recover(_hashTypedDataV4(structHash_), v_, r_, s_);
-        require(signer_ == owner(), "TokenContract: Invalid signature.");
+        require(tokenFactory.isAdmin(signer_), "TokenContract: Invalid signature.");
 
         require(block.timestamp <= endTimestamp_, "TokenContract: Signature expired.");
 
@@ -111,10 +114,26 @@ contract TokenContract is
         uint256 currentTokenId_ = _tokenId++;
 
         _mint(msg.sender, currentTokenId_);
+
         _tokenURIs[currentTokenId_] = tokenURI_;
         existingTokenURIs[tokenURI_] = true;
 
         emit TokenMinted(msg.sender, currentTokenId_, tokenURI_);
+    }
+
+    function getUserTokenIDs(address userAddr_)
+        external
+        view
+        override
+        returns (uint256[] memory tokenIDs_)
+    {
+        uint256 _tokensCount = balanceOf(userAddr_);
+
+        tokenIDs_ = new uint256[](_tokensCount);
+
+        for (uint256 i; i < _tokensCount; i++) {
+            tokenIDs_[i] = tokenOfOwnerByIndex(userAddr_, i);
+        }
     }
 
     function owner() public view override returns (address) {
@@ -136,7 +155,7 @@ contract TokenContract is
             amountToPay_.from18(tokenAddr_.decimals())
         );
 
-        emit ERC20PaymentSuccessful(address(tokenAddr_), amountToPay_, tokenPrice_);
+        emit PaymentSuccessful(address(tokenAddr_), amountToPay_, tokenPrice_);
     }
 
     function _payWithETH(uint256 ethPrice_) internal {
@@ -151,6 +170,6 @@ contract TokenContract is
             require(success_, "TokenContract: Failed to return currency.");
         }
 
-        emit ETHPaymentSuccessful(amountToPay_, ethPrice_);
+        emit PaymentSuccessful(address(0), amountToPay_, ethPrice_);
     }
 }
