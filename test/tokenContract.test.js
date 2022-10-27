@@ -1,4 +1,4 @@
-const { wei, accounts, toBN } = require("../scripts/helpers/utils");
+const { wei, accounts, toBN } = require("../scripts/utils//utils");
 const { getCurrentBlockTime, setTime } = require("./helpers/hardhatTimeTraveller");
 const { sign2612 } = require("./helpers/signatures");
 
