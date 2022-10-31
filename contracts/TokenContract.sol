@@ -143,7 +143,14 @@ contract TokenContract is
     function tokenURI(uint256 tokenId_) public view override returns (string memory) {
         require(_exists(tokenId_), "TokenContract: URI query for nonexistent token.");
 
-        return _tokenURIs[tokenId_];
+        string memory baseURI_ = _baseURI();
+
+        return
+            bytes(baseURI_).length > 0
+                ? string(
+                    abi.encodePacked(tokenFactory.baseTokenContractsURI(), _tokenURIs[tokenId_])
+                )
+                : "";
     }
 
     function _payWithERC20(IERC20Metadata tokenAddr_, uint256 tokenPrice_) internal {
@@ -171,5 +178,9 @@ contract TokenContract is
         }
 
         emit PaymentSuccessful(address(0), amountToPay_, ethPrice_);
+    }
+
+    function _baseURI() internal view override returns (string memory) {
+        return tokenFactory.baseTokenContractsURI();
     }
 }

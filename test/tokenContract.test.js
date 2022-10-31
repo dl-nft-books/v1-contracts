@@ -31,6 +31,7 @@ describe("TokenContract", () => {
   const tokenPrice = wei(500);
   const signDuration = 10000;
   const defaultTokenURI = "some uri";
+  const baseTokenContractsURI = "base uri/";
   let defaultEndTime;
 
   let OWNER;
@@ -80,7 +81,7 @@ describe("TokenContract", () => {
 
     tokenFactory = await TokenFactory.at(_tokenFactoryProxy.address);
 
-    await tokenFactory.__TokenFactory_init([OWNER], priceDecimals);
+    await tokenFactory.__TokenFactory_init([OWNER], baseTokenContractsURI, priceDecimals);
 
     assert.equal((await tokenFactory.priceDecimals()).toString(), priceDecimals.toString());
 
@@ -156,7 +157,7 @@ describe("TokenContract", () => {
         from: USER1,
       });
 
-      assert.equal(await tokenContract.tokenURI(0), defaultTokenURI);
+      assert.equal(await tokenContract.tokenURI(0), baseTokenContractsURI + defaultTokenURI);
       assert.equal(await tokenContract.ownerOf(0), USER1);
     });
 
@@ -189,7 +190,7 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.recipient, USER1);
       assert.equal(toBN(tx.receipt.logs[1].args.tokenId).toFixed(), 0);
 
-      assert.equal(await tokenContract.tokenURI(0), defaultTokenURI);
+      assert.equal(await tokenContract.tokenURI(0), baseTokenContractsURI + defaultTokenURI);
       assert.equal(await tokenContract.ownerOf(0), USER1);
 
       const newTokenURI = "new token URI";
@@ -199,7 +200,7 @@ describe("TokenContract", () => {
         from: USER1,
       });
 
-      assert.equal(await tokenContract.tokenURI(1), newTokenURI);
+      assert.equal(await tokenContract.tokenURI(1), baseTokenContractsURI + newTokenURI);
       assert.equal(await tokenContract.ownerOf(1), USER1);
       assert.equal(await tokenContract.balanceOf(USER1), 2);
     });
@@ -257,7 +258,7 @@ describe("TokenContract", () => {
         wei(0.001).toNumber()
       );
 
-      assert.equal(await tokenContract.tokenURI(0), defaultTokenURI);
+      assert.equal(await tokenContract.tokenURI(0), baseTokenContractsURI + defaultTokenURI);
       assert.equal(await tokenContract.ownerOf(0), USER1);
     });
 
@@ -465,7 +466,19 @@ describe("TokenContract", () => {
         from: USER1,
       });
 
-      assert.equal(await tokenContract.tokenURI(0), defaultTokenURI);
+      assert.equal(await tokenContract.tokenURI(0), baseTokenContractsURI + defaultTokenURI);
+    });
+
+    it("should return zero string if base token contracts URI is zero string", async () => {
+      const sig = signMint({ paymentTokenPrice: "0" });
+
+      await tokenContract.mintToken(paymentToken.address, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
+        from: USER1,
+      });
+
+      await tokenFactory.setBaseTokenContractsURI("");
+
+      assert.equal(await tokenContract.tokenURI(0), "");
     });
 
     it("should get exception if token does not exist", async () => {

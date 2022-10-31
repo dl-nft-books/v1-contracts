@@ -14,6 +14,10 @@ interface ITokenFactory {
         uint256[] tokenIDs;
     }
 
+    event BaseTokenContractsURIUpdated(string newBaseTokenContractsURI);
+
+    event AdminsUpdated(address[] adminsToUpdate, bool isAdding);
+
     event TokenContractDeployed(
         address newTokenContractAddr,
         uint256 pricePerOneToken,
@@ -21,7 +25,13 @@ interface ITokenFactory {
         string tokenSymbol
     );
 
-    function __TokenFactory_init(address[] memory adminsArr_, uint8 priceDecimals_) external;
+    function __TokenFactory_init(
+        address[] memory adminsArr_,
+        string memory baseTokenContractsURI_,
+        uint8 priceDecimals_
+    ) external;
+
+    function setBaseTokenContractsURI(string memory baseTokenContractsURI_) external;
 
     function setNewImplementation(address newImplementation_) external;
 
@@ -36,6 +46,8 @@ interface ITokenFactory {
     function poolsBeacon() external view returns (ProxyBeacon);
 
     function priceDecimals() external view returns (uint8);
+
+    function baseTokenContractsURI() external view returns (string memory);
 
     function getBaseTokenContractsInfo(address[] memory tokenContractsArr_)
         external

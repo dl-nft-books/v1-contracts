@@ -34,10 +34,12 @@ function parseTokenFactoryParams(path) {
   const tokenFactoryParams = JSON.parse(fs.readFileSync(path, "utf8"));
 
   validAddressesArr(tokenFactoryParams.admins, "admins");
+  nonEmptyField(tokenFactoryParams.baseTokenContractsURI, "baseTokenContractsURI", true);
   nonEmptyField(tokenFactoryParams.priceDecimals, "priceDecimals");
 
   return {
     admins: tokenFactoryParams.admins,
+    baseTokenContractsURI: tokenFactoryParams.baseTokenContractsURI,
     priceDecimals: tokenFactoryParams.priceDecimals,
   };
 }

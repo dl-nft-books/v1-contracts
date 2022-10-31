@@ -17,7 +17,11 @@ module.exports = async (deployer) => {
   const tokenContractImpl = await deployer.deploy(TokenContract);
 
   logTransaction(
-    await tokenFactory.__TokenFactory_init(tokenFactoryParams.admins, tokenFactoryParams.priceDecimals),
+    await tokenFactory.__TokenFactory_init(
+      tokenFactoryParams.admins,
+      tokenFactoryParams.baseTokenContractsURI,
+      tokenFactoryParams.priceDecimals
+    ),
     "Init TokenFactory contract"
   );
 
@@ -25,6 +29,7 @@ module.exports = async (deployer) => {
   console.log(`TokenFactory address ----- ${tokenFactory.address}`);
   console.log(`TokenFactory deployed with next params
     ADMINS: ${tokenFactoryParams.admins}
+    BASE_TOKEN_CONTRACTS_URI: ${tokenFactoryParams.baseTokenContractsURI}
     PRICE_DECIMALS: ${tokenFactoryParams.priceDecimals}
   `);
 

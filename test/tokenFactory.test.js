@@ -23,6 +23,7 @@ describe("TokenFactory", () => {
   const priceDecimals = toBN(18);
   const signDuration = 10000;
   const defaultTokenURI = "some uri";
+  const baseTokenContractsURI = "base uri/";
   let defaultEndTime;
 
   let OWNER;
@@ -69,7 +70,7 @@ describe("TokenFactory", () => {
 
     tokenFactory = await TokenFactory.at(_tokenFactoryProxy.address);
 
-    await tokenFactory.__TokenFactory_init([ADMIN1, ADMIN2], 18);
+    await tokenFactory.__TokenFactory_init([ADMIN1, ADMIN2], baseTokenContractsURI, 18);
 
     assert.equal((await tokenFactory.priceDecimals()).toString(), priceDecimals.toString());
 
@@ -90,7 +91,10 @@ describe("TokenFactory", () => {
     it("should get exception if try to call init function several times", async () => {
       const reason = "Initializable: contract is already initialized";
 
-      await truffleAssert.reverts(tokenFactory.__TokenFactory_init([ADMIN1, ADMIN2], 18), reason);
+      await truffleAssert.reverts(
+        tokenFactory.__TokenFactory_init([ADMIN1, ADMIN2], baseTokenContractsURI, 18),
+        reason
+      );
     });
   });
 
@@ -111,6 +115,25 @@ describe("TokenFactory", () => {
       const reason = "Ownable: caller is not the owner";
 
       await truffleAssert.reverts(tokenFactory.upgradeTo(_newTokenFactoryImpl.address, { from: USER1 }), reason);
+    });
+  });
+
+  describe("setBaseTokenContractsURI", () => {
+    it("should correctly update base token contracts URI", async () => {
+      const newBaseTokenContractsURI = "new base URI/";
+
+      const tx = await tokenFactory.setBaseTokenContractsURI(newBaseTokenContractsURI);
+
+      assert.equal(await tokenFactory.baseTokenContractsURI(), newBaseTokenContractsURI);
+
+      assert.equal(tx.receipt.logs[0].event, "BaseTokenContractsURIUpdated");
+      assert.equal(tx.receipt.logs[0].args.newBaseTokenContractsURI, newBaseTokenContractsURI);
+    });
+
+    it("should get exception if nonowner try to call this function", async () => {
+      const reason = "Ownable: caller is not the owner";
+
+      await truffleAssert.reverts(tokenFactory.setBaseTokenContractsURI("", { from: USER1 }), reason);
     });
   });
 
@@ -146,9 +169,13 @@ describe("TokenFactory", () => {
     it("should correctly add new tokens", async () => {
       let expectedArr = [ADMIN1, ADMIN2].concat(adminsToAdd);
 
-      await tokenFactory.updateAdmins(adminsToAdd, true);
+      const tx = await tokenFactory.updateAdmins(adminsToAdd, true);
 
       assert.deepEqual(await tokenFactory.getAdmins(), expectedArr);
+
+      assert.equal(tx.receipt.logs[0].event, "AdminsUpdated");
+      assert.deepEqual(tx.receipt.logs[0].args.adminsToUpdate, adminsToAdd);
+      assert.equal(tx.receipt.logs[0].args.isAdding, true);
     });
 
     it("should correctly remove tokens", async () => {
@@ -156,9 +183,13 @@ describe("TokenFactory", () => {
 
       let expectedArr = [ADMIN1, ADMIN2].concat(adminsToAdd[2]);
 
-      await tokenFactory.updateAdmins(adminsToAdd.slice(0, 2), false);
+      const tx = await tokenFactory.updateAdmins(adminsToAdd.slice(0, 2), false);
 
       assert.deepEqual(await tokenFactory.getAdmins(), expectedArr);
+
+      assert.equal(tx.receipt.logs[0].event, "AdminsUpdated");
+      assert.deepEqual(tx.receipt.logs[0].args.adminsToUpdate, adminsToAdd.slice(0, 2));
+      assert.equal(tx.receipt.logs[0].args.isAdding, false);
     });
 
     it("should get exception if pass zero address", async () => {
