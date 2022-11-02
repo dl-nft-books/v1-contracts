@@ -1,5 +1,5 @@
 const { fromRpcSig } = require("ethereumjs-util");
-const ethSigUtil = require("eth-sig-util");
+const { signTypedData } = require("@metamask/eth-sig-util");
 
 const sign2612 = (domain, message, privateKey) => {
   const { name, version = "1", chainId = 1, verifyingContract } = domain;
@@ -26,8 +26,8 @@ const sign2612 = (domain, message, privateKey) => {
     message: { paymentTokenAddress, paymentTokenPrice, endTimestamp, tokenURI },
   };
 
-  const signature = ethSigUtil.signTypedMessage(privateKey, { data });
-  return fromRpcSig(signature);
+  const sig = signTypedData({ privateKey, data, version: "V4" });
+  return fromRpcSig(sig);
 };
 
 module.exports = {
