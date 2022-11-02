@@ -48,6 +48,11 @@ contract TokenContract is
         _;
     }
 
+    modifier onlyOwner() {
+        require(msg.sender == owner(), "TokenContract: Only owner can call this function.");
+        _;
+    }
+
     function __TokenContract_init(
         string memory tokenName_,
         string memory tokenSymbol_,
@@ -73,6 +78,32 @@ contract TokenContract is
 
     function unpause() external override onlyAdmin {
         _unpause();
+    }
+
+    function withdrawPaidTokens(address tokenAddr_, address recipient_)
+        external
+        override
+        onlyOwner
+    {
+        IERC20Metadata token_ = IERC20Metadata(tokenAddr_);
+        bool isNativeCurrency_ = tokenAddr_ == address(0);
+
+        uint256 amount_ = isNativeCurrency_
+            ? address(this).balance
+            : token_.balanceOf(address(this));
+
+        require(amount_ > 0, "TokenContract: Nothing to withdraw.");
+
+        if (isNativeCurrency_) {
+            (bool success_, ) = recipient_.call{value: amount_}("");
+            require(success_, "TokenContract: Failed to transfer native currecy.");
+        } else {
+            token_.safeTransfer(recipient_, amount_);
+
+            amount_ = amount_.to18(token_.decimals());
+        }
+
+        emit PaidTokensWithdrawn(tokenAddr_, recipient_, amount_);
     }
 
     function mintToken(

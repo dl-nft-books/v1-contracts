@@ -1,4 +1,5 @@
 const { wei, accounts, toBN } = require("../scripts/utils//utils");
+const { ZERO_ADDR } = require("../scripts/utils//constants");
 const { getCurrentBlockTime, setTime } = require("./helpers/hardhatTimeTraveller");
 const { sign2612 } = require("./helpers/signatures");
 
@@ -19,8 +20,6 @@ ERC20Mock.numberFormat = "BigNumber";
 
 describe("TokenContract", () => {
   const reverter = new Reverter();
-
-  const ADDRESS_NULL = "0x0000000000000000000000000000000000000000";
 
   const OWNER_PK = "3473fa67faf1b0433c89babc1d7216f43c3019ae3f32fc848004d76d11e887b2";
   const USER1_PK = "0e48c6349e2619d39b0f2c19b63e650718903a3146c7fb71f4c7761147b2a10b";
@@ -169,6 +168,104 @@ describe("TokenContract", () => {
     });
   });
 
+  describe("withdrawPaidTokens", () => {
+    it("should correctly withdraw native currency", async () => {
+      const currencyPrice = wei(10000);
+      const sig = signMint({ paymentTokenAddress: ZERO_ADDR, paymentTokenPrice: currencyPrice.toFixed() });
+
+      const expectedCurrencyAmount = pricePerOneToken.times(wei(1)).idiv(currencyPrice);
+
+      await tokenContract.mintToken(ZERO_ADDR, currencyPrice, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
+        from: USER1,
+        value: expectedCurrencyAmount,
+      });
+
+      assert.equal(toBN(await web3.eth.getBalance(tokenContract.address)).toFixed(), expectedCurrencyAmount.toFixed());
+
+      const currencyBalanceBefore = toBN(await web3.eth.getBalance(USER1));
+
+      const tx = await tokenContract.withdrawPaidTokens(ZERO_ADDR, USER1);
+
+      const currencyBalanceAfter = toBN(await web3.eth.getBalance(USER1));
+
+      assert.equal(currencyBalanceAfter.minus(currencyBalanceBefore).toFixed(), expectedCurrencyAmount.toFixed());
+
+      assert.equal(tx.receipt.logs[0].event, "PaidTokensWithdrawn");
+      assert.equal(tx.receipt.logs[0].args.tokenAddr, ZERO_ADDR);
+      assert.equal(tx.receipt.logs[0].args.recipient, USER1);
+      assert.equal(toBN(tx.receipt.logs[0].args.amount).toFixed(), expectedCurrencyAmount.toFixed());
+    });
+
+    it("should correctly withdraw ERC20 token", async () => {
+      const newDecimals = 8;
+
+      await paymentToken.setDecimals(newDecimals);
+
+      const paymentTokenPrice = wei(10000);
+      const sig = signMint({ paymentTokenPrice: paymentTokenPrice.toFixed() });
+
+      const expectedPaymentAmount = pricePerOneToken.times(wei(1)).idiv(paymentTokenPrice);
+      const expectedTokensAmount = expectedPaymentAmount.idiv(wei(1, 10));
+
+      await tokenContract.mintToken(
+        paymentToken.address,
+        paymentTokenPrice,
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+        }
+      );
+
+      assert.equal((await paymentToken.balanceOf(tokenContract.address)).toFixed(), expectedTokensAmount.toFixed());
+
+      const tx = await tokenContract.withdrawPaidTokens(paymentToken.address, OWNER);
+
+      assert.equal(
+        toBN(await paymentToken.balanceOf(OWNER)).toFixed(),
+        mintTokensAmount.plus(expectedTokensAmount).toFixed()
+      );
+
+      assert.equal(tx.receipt.logs[0].event, "PaidTokensWithdrawn");
+      assert.equal(tx.receipt.logs[0].args.tokenAddr, paymentToken.address);
+      assert.equal(tx.receipt.logs[0].args.recipient, OWNER);
+      assert.equal(toBN(tx.receipt.logs[0].args.amount).toFixed(), expectedPaymentAmount.toFixed());
+    });
+
+    it("should get exception if nothing to withdraw", async () => {
+      const reason = "TokenContract: Nothing to withdraw.";
+
+      await truffleAssert.reverts(tokenContract.withdrawPaidTokens(ZERO_ADDR, USER1), reason);
+
+      await truffleAssert.reverts(tokenContract.withdrawPaidTokens(paymentToken.address, USER1), reason);
+    });
+
+    it("should get exception if failed to transfer native currency to the recipient", async () => {
+      const reason = "TokenContract: Failed to transfer native currecy.";
+
+      const currencyPrice = wei(10000);
+      const sig = signMint({ paymentTokenAddress: ZERO_ADDR, paymentTokenPrice: currencyPrice.toFixed() });
+
+      const expectedCurrencyAmount = pricePerOneToken.times(wei(1)).idiv(currencyPrice);
+
+      await tokenContract.mintToken(ZERO_ADDR, currencyPrice, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
+        from: USER1,
+        value: expectedCurrencyAmount,
+      });
+
+      await truffleAssert.reverts(tokenContract.withdrawPaidTokens(ZERO_ADDR, tokenContract.address), reason);
+    });
+
+    it("should get exception if nonowner try to call this function", async () => {
+      const reason = "TokenContract: Only owner can call this function.";
+
+      await truffleAssert.reverts(tokenContract.withdrawPaidTokens(ZERO_ADDR, USER1, { from: USER1 }), reason);
+    });
+  });
+
   describe("mintToken", () => {
     it("should correctly mint new tokens", async () => {
       let sig = signMint({ paymentTokenPrice: "0" });
@@ -208,11 +305,11 @@ describe("TokenContract", () => {
     it("should correctly pay with ETH for new token with extra currency", async () => {
       const balanceBefore = toBN(await web3.eth.getBalance(USER1));
 
-      const sig = signMint({ paymentTokenAddress: ADDRESS_NULL });
+      const sig = signMint({ paymentTokenAddress: ZERO_ADDR });
       const expectedCurrencyCount = pricePerOneToken.times(wei(1)).idiv(tokenPrice);
 
       const tx = await tokenContract.mintToken(
-        ADDRESS_NULL,
+        ZERO_ADDR,
         tokenPrice,
         defaultEndTime,
         defaultTokenURI,
@@ -234,7 +331,7 @@ describe("TokenContract", () => {
       );
 
       assert.equal(tx.receipt.logs[0].event, "PaymentSuccessful");
-      assert.equal(tx.receipt.logs[0].args.tokenAddress, ADDRESS_NULL);
+      assert.equal(tx.receipt.logs[0].args.tokenAddress, ZERO_ADDR);
       assert.equal(toBN(tx.receipt.logs[0].args.tokenAmount).toFixed(), expectedCurrencyCount.toFixed());
       assert.equal(toBN(tx.receipt.logs[0].args.tokenPrice).toFixed(), tokenPrice.toFixed());
     });
@@ -242,10 +339,10 @@ describe("TokenContract", () => {
     it("should correctly pay with ETH without extra currency", async () => {
       const balanceBefore = toBN(await web3.eth.getBalance(USER1));
 
-      const sig = signMint({ paymentTokenAddress: ADDRESS_NULL });
+      const sig = signMint({ paymentTokenAddress: ZERO_ADDR });
       const expectedCurrencyCount = pricePerOneToken.times(wei(1)).idiv(tokenPrice);
 
-      await tokenContract.mintToken(ADDRESS_NULL, tokenPrice, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
+      await tokenContract.mintToken(ZERO_ADDR, tokenPrice, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
         from: USER1,
         value: expectedCurrencyCount,
       });
@@ -294,12 +391,12 @@ describe("TokenContract", () => {
     it("should get exception if transfer currency failed", async () => {
       const reason = "TokenContract: Failed to return currency.";
 
-      const sig = signMint({ paymentTokenAddress: ADDRESS_NULL });
+      const sig = signMint({ paymentTokenAddress: ZERO_ADDR });
       const expectedCurrencyCount = pricePerOneToken.times(wei(1)).idiv(tokenPrice);
 
       const attacker = await Attacker.new(tokenContract.address, [
         expectedCurrencyCount,
-        ADDRESS_NULL,
+        ZERO_ADDR,
         tokenPrice,
         defaultEndTime,
         defaultTokenURI,
@@ -338,11 +435,11 @@ describe("TokenContract", () => {
     it("should get exception if send currency less than needed", async () => {
       const reason = "TokenContract: Invalid currency amount.";
 
-      const sig = signMint({ paymentTokenAddress: ADDRESS_NULL });
+      const sig = signMint({ paymentTokenAddress: ZERO_ADDR });
       const expectedCurrencyCount = pricePerOneToken.times(wei(1)).idiv(tokenPrice);
 
       await truffleAssert.reverts(
-        tokenContract.mintToken(ADDRESS_NULL, tokenPrice, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
+        tokenContract.mintToken(ZERO_ADDR, tokenPrice, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
           from: USER1,
           value: expectedCurrencyCount.idiv(2),
         }),

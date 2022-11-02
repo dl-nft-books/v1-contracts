@@ -6,6 +6,7 @@ import "./ITokenFactory.sol";
 interface ITokenContract {
     event PaymentSuccessful(address indexed tokenAddress, uint256 tokenAmount, uint256 tokenPrice);
     event TokenMinted(address indexed recipient, uint256 tokenId, string tokenURI);
+    event PaidTokensWithdrawn(address indexed tokenAddr, address recipient, uint256 amount);
 
     function __TokenContract_init(
         string memory tokenName_,
@@ -25,6 +26,8 @@ interface ITokenContract {
     function pause() external;
 
     function unpause() external;
+
+    function withdrawPaidTokens(address tokenAddr_, address recipient_) external;
 
     function mintToken(
         address paymentTokenAddress_,

@@ -14,6 +14,10 @@ contract ERC20Mock is ERC20 {
         _decimals = decimalPlaces_;
     }
 
+    function setDecimals(uint8 newDecimals_) external {
+        _decimals = newDecimals_;
+    }
+
     function decimals() public view override returns (uint8) {
         return _decimals;
     }
