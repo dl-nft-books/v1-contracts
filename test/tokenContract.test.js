@@ -49,11 +49,12 @@ describe("TokenContract", () => {
     paymentTokenPrice = tokenPrice.toFixed(),
     endTimestamp = defaultEndTime.toFixed(),
     tokenURI = defaultTokenURI,
+    name = "Test token contract",
   }) {
     const buffer = Buffer.from(privateKey, "hex");
 
     const domain = {
-      name: "Test token contract",
+      name,
       verifyingContract: tokenContract.address,
     };
 
@@ -119,19 +120,83 @@ describe("TokenContract", () => {
     });
   });
 
-  describe("updatePricePerOneToken", () => {
+  describe("updateTokenContractParams", () => {
     const newPrice = wei(75);
+    const newName = "new name";
+    const newSymbol = "NS";
 
     it("should correctly update price per one token", async () => {
-      await tokenContract.updatePricePerOneToken(newPrice);
+      const tx = await tokenContract.updateTokenContractParams(newPrice, newName, newSymbol);
 
       assert.equal((await tokenContract.pricePerOneToken()).toFixed(), newPrice.toFixed());
+      assert.equal(await tokenContract.name(), newName);
+      assert.equal(await tokenContract.symbol(), newSymbol);
+
+      await tokenContract.updateTokenContractParams(newPrice, newName, newSymbol);
+
+      assert.equal((await tokenContract.pricePerOneToken()).toFixed(), newPrice.toFixed());
+      assert.equal(await tokenContract.name(), newName);
+      assert.equal(await tokenContract.symbol(), newSymbol);
+
+      assert.equal(tx.receipt.logs[0].event, "TokenContractParamsUpdated");
+      assert.equal(toBN(tx.receipt.logs[0].args.newPrice).toFixed(), newPrice.toFixed());
+      assert.equal(tx.receipt.logs[0].args.tokenName, newName);
+      assert.equal(tx.receipt.logs[0].args.tokenSymbol, newSymbol);
+    });
+
+    it("should correctly sign data with new contract name", async () => {
+      await tokenContract.updateTokenContractParams(newPrice, newName, newSymbol);
+
+      const paymentTokenPrice = wei(10000);
+      const sig = signMint({ paymentTokenPrice: paymentTokenPrice.toFixed(), name: newName });
+
+      const expectedPaymentAmount = newPrice.times(wei(1)).idiv(paymentTokenPrice);
+
+      await tokenContract.mintToken(
+        paymentToken.address,
+        paymentTokenPrice,
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+        }
+      );
+
+      assert.equal((await paymentToken.balanceOf(tokenContract.address)).toFixed(), expectedPaymentAmount.toFixed());
+    });
+
+    it("should get exception if sign with old name", async () => {
+      await tokenContract.updateTokenContractParams(newPrice, newName, newSymbol);
+
+      const paymentTokenPrice = wei(10000);
+      const sig = signMint({ paymentTokenPrice: paymentTokenPrice.toFixed() });
+
+      const reason = "TokenContract: Invalid signature.";
+
+      await truffleAssert.reverts(
+        tokenContract.mintToken(
+          paymentToken.address,
+          paymentTokenPrice,
+          defaultEndTime,
+          defaultTokenURI,
+          sig.r,
+          sig.s,
+          sig.v,
+          {
+            from: USER1,
+          }
+        ),
+        reason
+      );
     });
 
     it("should get exception if non admin try to call this function", async () => {
       const reason = "TokenContract: Only admin can call this function.";
 
-      await truffleAssert.reverts(tokenContract.updatePricePerOneToken(newPrice, { from: USER1 }), reason);
+      await truffleAssert.reverts(tokenContract.updateTokenContractParams(newPrice, "", "", { from: USER1 }), reason);
     });
   });
 

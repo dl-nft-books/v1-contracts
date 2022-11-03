@@ -36,6 +36,8 @@ contract TokenContract is
     uint256 public override pricePerOneToken;
 
     uint256 internal _tokenId;
+    string internal _tokenName;
+    string internal _tokenSymbol;
 
     mapping(string => bool) public override existingTokenURIs;
     mapping(uint256 => string) internal _tokenURIs;
@@ -66,10 +68,29 @@ contract TokenContract is
 
         tokenFactory = ITokenFactory(tokenFactoryAddr_);
         pricePerOneToken = pricePerOneToken_;
+
+        _tokenName = tokenName_;
+        _tokenSymbol = tokenSymbol_;
+
+        emit TokenContractParamsUpdated(pricePerOneToken_, tokenName_, tokenSymbol_);
     }
 
-    function updatePricePerOneToken(uint256 newPrice_) external override onlyAdmin {
+    function updateTokenContractParams(
+        uint256 newPrice_,
+        string memory newTokenName_,
+        string memory newTokenSymbol_
+    ) external onlyAdmin {
         pricePerOneToken = newPrice_;
+
+        if (!_compareStrings(newTokenName_, _tokenName)) {
+            _tokenName = newTokenName_;
+        }
+
+        if (!_compareStrings(newTokenSymbol_, _tokenSymbol)) {
+            _tokenSymbol = newTokenSymbol_;
+        }
+
+        emit TokenContractParamsUpdated(newPrice_, newTokenName_, newTokenSymbol_);
     }
 
     function pause() external override onlyAdmin {
@@ -184,6 +205,14 @@ contract TokenContract is
                 : "";
     }
 
+    function name() public view override returns (string memory) {
+        return _tokenName;
+    }
+
+    function symbol() public view override returns (string memory) {
+        return _tokenSymbol;
+    }
+
     function _payWithERC20(IERC20Metadata tokenAddr_, uint256 tokenPrice_) internal {
         uint256 amountToPay_ = (pricePerOneToken * DECIMAL) / tokenPrice_;
 
@@ -213,5 +242,17 @@ contract TokenContract is
 
     function _baseURI() internal view override returns (string memory) {
         return tokenFactory.baseTokenContractsURI();
+    }
+
+    function _EIP712NameHash() internal view override returns (bytes32) {
+        return keccak256(bytes(_tokenName));
+    }
+
+    function _compareStrings(string memory firstStr_, string memory secondStr_)
+        internal
+        pure
+        returns (bool)
+    {
+        return keccak256(abi.encodePacked(firstStr_)) == keccak256(abi.encodePacked(secondStr_));
     }
 }
