@@ -3,7 +3,9 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import "@dlsl/dev-modules/pool-contracts-registry/pool-factory/PublicBeaconProxy.sol";
 import "@dlsl/dev-modules/pool-contracts-registry/ProxyBeacon.sol";
@@ -12,9 +14,14 @@ import "@dlsl/dev-modules/libs/arrays/Paginator.sol";
 import "./interfaces/ITokenFactory.sol";
 import "./interfaces/ITokenContract.sol";
 
-contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
+contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable, EIP712Upgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
     using Paginator for EnumerableSet.AddressSet;
+
+    bytes32 internal constant _CREATE_TYPEHASH =
+        keccak256(
+            "Create(uint256 tokenContractId,bytes32 tokenName,bytes32 tokenSymbol,uint256 pricePerOneToken)"
+        );
 
     ProxyBeacon public override poolsBeacon;
     uint8 public override priceDecimals;
@@ -23,10 +30,7 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
     EnumerableSet.AddressSet internal _tokenContracts;
     EnumerableSet.AddressSet internal _admins;
 
-    modifier onlyAdmin() {
-        require(isAdmin(msg.sender), "TokenFactory: Only admin can call this function.");
-        _;
-    }
+    mapping(uint256 => address) public override tokenContractByIndex;
 
     function __TokenFactory_init(
         address[] memory adminsArr_,
@@ -34,6 +38,7 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
         uint8 priceDecimals_
     ) external override initializer {
         __Ownable_init();
+        __EIP712_init("TokenFactory", "1");
 
         poolsBeacon = new ProxyBeacon();
         priceDecimals = priceDecimals_;
@@ -71,12 +76,31 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function deployTokenContract(
+        uint256 tokenContractId_,
         string memory tokenName_,
         string memory tokenSymbol_,
-        uint256 pricePerOneToken_
-    ) external override onlyAdmin {
-        _nonEmptyString(tokenName_, "token name");
-        _nonEmptyString(tokenSymbol_, "token symbol");
+        uint256 pricePerOneToken_,
+        bytes32 r_,
+        bytes32 s_,
+        uint8 v_
+    ) external override {
+        require(
+            tokenContractByIndex[tokenContractId_] == address(0),
+            "TokenFactory: TokenContract with such id already exists."
+        );
+
+        bytes32 structHash_ = keccak256(
+            abi.encode(
+                _CREATE_TYPEHASH,
+                tokenContractId_,
+                keccak256(abi.encodePacked(tokenName_)),
+                keccak256(abi.encodePacked(tokenSymbol_)),
+                pricePerOneToken_
+            )
+        );
+
+        address signer_ = ECDSA.recover(_hashTypedDataV4(structHash_), v_, r_, s_);
+        require(isAdmin(signer_), "TokenFactory: Invalid signature.");
 
         address newTokenContract_ = address(new PublicBeaconProxy(address(poolsBeacon), ""));
 
@@ -88,8 +112,15 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
         );
 
         _tokenContracts.add(newTokenContract_);
+        tokenContractByIndex[tokenContractId_] = newTokenContract_;
 
-        emit TokenContractDeployed(newTokenContract_, pricePerOneToken_, tokenName_, tokenSymbol_);
+        emit TokenContractDeployed(
+            tokenContractId_,
+            newTokenContract_,
+            pricePerOneToken_,
+            tokenName_,
+            tokenSymbol_
+        );
     }
 
     function getTokenContractsImpl() external view override returns (address) {
@@ -170,11 +201,4 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function _authorizeUpgrade(address newImplementation_) internal override onlyOwner {}
-
-    function _nonEmptyString(string memory str_, string memory fieldName_) internal pure {
-        require(
-            bytes(str_).length > 0,
-            string(abi.encodePacked("TokenFactory: Invalid ", fieldName_, "."))
-        );
-    }
 }

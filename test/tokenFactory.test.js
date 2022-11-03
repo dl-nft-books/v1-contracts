@@ -1,13 +1,13 @@
 const { wei, accounts, toBN } = require("../scripts/utils/utils");
 const { ZERO_ADDR } = require("../scripts/utils/constants");
 const { getCurrentBlockTime } = require("./helpers/hardhatTimeTraveller");
-const { sign2612 } = require("./helpers/signatures");
+const { signMint, signCreate } = require("./helpers/signatures");
 
 const truffleAssert = require("truffle-assertions");
 const Reverter = require("./helpers/reverter");
 const { assert } = require("chai");
 
-const TokenFactory = artifacts.require("TokenFactoryMock");
+const TokenFactory = artifacts.require("TokenFactory");
 const TokenContract = artifacts.require("TokenContract");
 const ERC20Mock = artifacts.require("ERC20Mock");
 const PublicERC1967Proxy = artifacts.require("PublicERC1967Proxy");
@@ -19,12 +19,18 @@ describe("TokenFactory", () => {
   const reverter = new Reverter();
 
   const OWNER_PK = "3473fa67faf1b0433c89babc1d7216f43c3019ae3f32fc848004d76d11e887b2";
+  const USER1_PK = "0e48c6349e2619d39b0f2c19b63e650718903a3146c7fb71f4c7761147b2a10b";
 
   const priceDecimals = toBN(18);
   const signDuration = 10000;
   const defaultTokenURI = "some uri";
   const baseTokenContractsURI = "base uri/";
   let defaultEndTime;
+
+  const defaultTokenContractId = "0";
+  const defaultTokenName = "tokenName";
+  const defaultTokenSymbol = "tokenSymbol";
+  const defaultPricePerOneToken = wei(10, priceDecimals);
 
   let OWNER;
   let USER1;
@@ -34,7 +40,7 @@ describe("TokenFactory", () => {
   let tokenFactory;
   let tokenFactoryImpl;
 
-  function signMint({
+  function signMintTest({
     tokenContract,
     privateKey = OWNER_PK,
     paymentTokenAddress = ZERO_ADDR,
@@ -45,18 +51,67 @@ describe("TokenFactory", () => {
     const buffer = Buffer.from(privateKey, "hex");
 
     const domain = {
-      name: "some name",
+      name: defaultTokenName,
       verifyingContract: tokenContract,
     };
 
-    const create = {
+    const mint = {
       paymentTokenAddress,
       paymentTokenPrice,
       endTimestamp,
       tokenURI: web3.utils.soliditySha3(tokenURI),
     };
 
-    return sign2612(domain, create, buffer);
+    return signMint(domain, mint, buffer);
+  }
+
+  function signCreateTest({
+    privateKey = OWNER_PK,
+    tokenContractId = defaultTokenContractId,
+    tokenName = defaultTokenName,
+    tokenSymbol = defaultTokenSymbol,
+    pricePerOneToken = defaultPricePerOneToken.toFixed(),
+  }) {
+    const buffer = Buffer.from(privateKey, "hex");
+
+    const domain = {
+      name: "TokenFactory",
+      verifyingContract: tokenFactory.address,
+    };
+
+    const create = {
+      tokenContractId,
+      tokenName: web3.utils.soliditySha3(tokenName),
+      tokenSymbol: web3.utils.soliditySha3(tokenSymbol),
+      pricePerOneToken,
+    };
+
+    return signCreate(domain, create, buffer);
+  }
+
+  async function deployNewTokenContract({
+    tokenContractId_ = defaultTokenContractId,
+    tokenName_ = defaultTokenName,
+    tokenSymbol_ = defaultTokenSymbol,
+    pricePerOneToken_ = defaultPricePerOneToken.toFixed(),
+  }) {
+    const sig = signCreateTest({
+      tokenContractId: tokenContractId_,
+      tokenName: tokenName_,
+      tokenSymbol: tokenSymbol_,
+      pricePerOneToken: pricePerOneToken_,
+    });
+
+    return await tokenFactory.deployTokenContract(
+      tokenContractId_,
+      tokenName_,
+      tokenSymbol_,
+      pricePerOneToken_,
+      sig.r,
+      sig.s,
+      sig.v,
+      { from: USER1 }
+    );
   }
 
   before("setup", async () => {
@@ -70,7 +125,7 @@ describe("TokenFactory", () => {
 
     tokenFactory = await TokenFactory.at(_tokenFactoryProxy.address);
 
-    await tokenFactory.__TokenFactory_init([ADMIN1, ADMIN2], baseTokenContractsURI, 18);
+    await tokenFactory.__TokenFactory_init([OWNER, ADMIN1, ADMIN2], baseTokenContractsURI, 18);
 
     assert.equal((await tokenFactory.priceDecimals()).toString(), priceDecimals.toString());
 
@@ -167,7 +222,7 @@ describe("TokenFactory", () => {
     });
 
     it("should correctly add new tokens", async () => {
-      let expectedArr = [ADMIN1, ADMIN2].concat(adminsToAdd);
+      let expectedArr = [OWNER, ADMIN1, ADMIN2].concat(adminsToAdd);
 
       const tx = await tokenFactory.updateAdmins(adminsToAdd, true);
 
@@ -181,7 +236,7 @@ describe("TokenFactory", () => {
     it("should correctly remove tokens", async () => {
       await tokenFactory.updateAdmins(adminsToAdd, true);
 
-      let expectedArr = [ADMIN1, ADMIN2].concat(adminsToAdd[2]);
+      let expectedArr = [OWNER, ADMIN1, ADMIN2].concat(adminsToAdd[2]);
 
       const tx = await tokenFactory.updateAdmins(adminsToAdd.slice(0, 2), false);
 
@@ -207,36 +262,66 @@ describe("TokenFactory", () => {
 
   describe("deployTokenContract", () => {
     it("should correctly deploy new TokenContract", async () => {
-      const tokenName = "some name";
-      const tokenSymbol = "some symbol";
-      const pricePerOneToken = wei(10, priceDecimals);
-
-      const tx = await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
+      const tx = await deployNewTokenContract({});
 
       assert.equal(tx.receipt.logs[1].event, "TokenContractDeployed");
-      assert.equal(tx.receipt.logs[1].args.newTokenContractAddr, await tokenFactory.getTokenContractByIndex(0));
-      assert.equal(toBN(tx.receipt.logs[1].args.pricePerOneToken).toString(), pricePerOneToken.toString());
-      assert.equal(tx.receipt.logs[1].args.tokenName, tokenName);
-      assert.equal(tx.receipt.logs[1].args.tokenSymbol, tokenSymbol);
+      assert.equal(toBN(tx.receipt.logs[1].args.tokenContractId).toString(), defaultTokenContractId);
+      assert.equal(
+        tx.receipt.logs[1].args.newTokenContractAddr,
+        await tokenFactory.tokenContractByIndex(defaultTokenContractId)
+      );
+      assert.equal(toBN(tx.receipt.logs[1].args.pricePerOneToken).toString(), defaultPricePerOneToken.toString());
+      assert.equal(tx.receipt.logs[1].args.tokenName, defaultTokenName);
+      assert.equal(tx.receipt.logs[1].args.tokenSymbol, defaultTokenSymbol);
     });
 
-    it("should get exception if pass invalid token name", async () => {
-      const reason = "TokenFactory: Invalid token name.";
+    it("should get exception if try to deploy tokenContaract with already existing tokenContractId", async () => {
+      const reason = "TokenFactory: TokenContract with such id already exists.";
 
-      await truffleAssert.reverts(tokenFactory.deployTokenContract("", "some symbol", 0, { from: ADMIN1 }), reason);
-    });
+      const sig = signCreateTest({});
 
-    it("should get exception if pass invalid token symbol", async () => {
-      const reason = "TokenFactory: Invalid token symbol.";
-
-      await truffleAssert.reverts(tokenFactory.deployTokenContract("some name", "", 0, { from: ADMIN1 }), reason);
-    });
-
-    it("should get exception if nonowner try to call this function", async () => {
-      const reason = "TokenFactory: Only admin can call this function.";
+      await tokenFactory.deployTokenContract(
+        defaultTokenContractId,
+        defaultTokenName,
+        defaultTokenSymbol,
+        defaultPricePerOneToken,
+        sig.r,
+        sig.s,
+        sig.v,
+        { from: USER1 }
+      );
 
       await truffleAssert.reverts(
-        tokenFactory.deployTokenContract("some name", "some symbol", 0, { from: USER1 }),
+        tokenFactory.deployTokenContract(
+          defaultTokenContractId,
+          defaultTokenName,
+          defaultTokenSymbol,
+          defaultPricePerOneToken,
+          sig.r,
+          sig.s,
+          sig.v,
+          { from: USER1 }
+        ),
+        reason
+      );
+    });
+
+    it("should get exception if signature is invalid", async () => {
+      const reason = "TokenFactory: Invalid signature.";
+
+      const sig = signCreateTest({ privateKey: USER1_PK });
+
+      await truffleAssert.reverts(
+        tokenFactory.deployTokenContract(
+          defaultTokenContractId,
+          defaultTokenName,
+          defaultTokenSymbol,
+          defaultPricePerOneToken,
+          sig.r,
+          sig.s,
+          sig.v,
+          { from: USER1 }
+        ),
         reason
       );
     });
@@ -244,17 +329,17 @@ describe("TokenFactory", () => {
 
   describe("getBaseTokenContractsInfo", () => {
     it("should return correct base token contracts info", async () => {
-      const tokenName = "some name";
-      const tokenSymbol = "some symbol";
-      let pricePerOneToken = wei(10, priceDecimals);
+      await deployNewTokenContract({});
 
-      await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
+      let tokenContractId = "1";
+      let pricePerOneToken = wei(20, priceDecimals).toFixed();
 
-      pricePerOneToken = wei(20, priceDecimals);
-      await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
+      await deployNewTokenContract({ tokenContractId_: tokenContractId, pricePerOneToken_: pricePerOneToken });
 
-      pricePerOneToken = wei(30, priceDecimals);
-      await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
+      tokenContractId = "2";
+      pricePerOneToken = wei(30, priceDecimals).toFixed();
+
+      await deployNewTokenContract({ tokenContractId_: tokenContractId, pricePerOneToken_: pricePerOneToken });
 
       const tokenContractsArr = await tokenFactory.getTokenContractsPart(0, 10);
 
@@ -269,19 +354,19 @@ describe("TokenFactory", () => {
 
   describe("getUserNFTsInfo", () => {
     it("should return correct user NFTs info arr", async () => {
-      await tokenFactory.updateAdmins([OWNER], true);
+      await deployNewTokenContract({});
 
-      const tokenName = "some name";
-      const tokenSymbol = "some symbol";
-      const pricePerOneToken = wei(10, priceDecimals);
+      let tokenContractId = "1";
 
-      await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
-      await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
-      await tokenFactory.deployTokenContract(tokenName, tokenSymbol, pricePerOneToken, { from: ADMIN1 });
+      await deployNewTokenContract({ tokenContractId_: tokenContractId });
+
+      tokenContractId = "2";
+
+      await deployNewTokenContract({ tokenContractId_: tokenContractId });
 
       const tokenContractsArr = await tokenFactory.getTokenContractsPart(0, 10);
 
-      let sig = signMint({ tokenContract: tokenContractsArr[0] });
+      let sig = signMintTest({ tokenContract: tokenContractsArr[0] });
 
       await (
         await TokenContract.at(tokenContractsArr[0])
@@ -289,7 +374,7 @@ describe("TokenFactory", () => {
         from: USER1,
       });
 
-      sig = signMint({ tokenContract: tokenContractsArr[0], tokenURI: defaultTokenURI + 1 });
+      sig = signMintTest({ tokenContract: tokenContractsArr[0], tokenURI: defaultTokenURI + 1 });
 
       await (
         await TokenContract.at(tokenContractsArr[0])
@@ -297,7 +382,7 @@ describe("TokenFactory", () => {
         from: USER1,
       });
 
-      sig = signMint({ tokenContract: tokenContractsArr[2], tokenURI: defaultTokenURI + 2 });
+      sig = signMintTest({ tokenContract: tokenContractsArr[2], tokenURI: defaultTokenURI + 2 });
 
       await (
         await TokenContract.at(tokenContractsArr[2])
@@ -323,14 +408,12 @@ describe("TokenFactory", () => {
 
   describe("getTokenContractsPart", () => {
     it("should return correct token contracts arr", async () => {
-      const tokenName = "some name";
-      const tokenSymbol = "some symbol";
-      const pricePerOneToken = wei(10, priceDecimals);
       const addressesArr = [];
 
       for (let i = 0; i < 5; i++) {
-        await tokenFactory.deployTokenContract(tokenName + i, tokenSymbol + i, pricePerOneToken, { from: ADMIN1 });
-        addressesArr.push(await tokenFactory.getTokenContractByIndex(i));
+        await deployNewTokenContract({ tokenContractId_: i });
+
+        addressesArr.push(await tokenFactory.tokenContractByIndex(i));
       }
 
       assert.equal((await tokenFactory.getTokenContractsCount()).toString(), 5);
