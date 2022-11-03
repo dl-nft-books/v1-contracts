@@ -1,5 +1,6 @@
 const { wei, accounts, toBN } = require("../scripts/utils/utils");
-const { getCurrentBlockTime, setTime } = require("./helpers/hardhatTimeTraveller");
+const { ZERO_ADDR } = require("../scripts/utils/constants");
+const { getCurrentBlockTime } = require("./helpers/hardhatTimeTraveller");
 const { sign2612 } = require("./helpers/signatures");
 
 const truffleAssert = require("truffle-assertions");
@@ -17,7 +18,6 @@ ERC20Mock.numberFormat = "BigNumber";
 describe("TokenFactory", () => {
   const reverter = new Reverter();
 
-  const ADDRESS_NULL = "0x0000000000000000000000000000000000000000";
   const OWNER_PK = "3473fa67faf1b0433c89babc1d7216f43c3019ae3f32fc848004d76d11e887b2";
 
   const priceDecimals = toBN(18);
@@ -37,7 +37,7 @@ describe("TokenFactory", () => {
   function signMint({
     tokenContract,
     privateKey = OWNER_PK,
-    paymentTokenAddress = ADDRESS_NULL,
+    paymentTokenAddress = ZERO_ADDR,
     paymentTokenPrice = "0",
     endTimestamp = defaultEndTime.toFixed(),
     tokenURI = defaultTokenURI,
@@ -195,7 +195,7 @@ describe("TokenFactory", () => {
     it("should get exception if pass zero address", async () => {
       const reason = "PoolFactory: Bad address.";
 
-      await truffleAssert.reverts(tokenFactory.updateAdmins(adminsToAdd.concat(ADDRESS_NULL), true), reason);
+      await truffleAssert.reverts(tokenFactory.updateAdmins(adminsToAdd.concat(ZERO_ADDR), true), reason);
     });
 
     it("should get exception if non admin try to call this function", async () => {
@@ -285,7 +285,7 @@ describe("TokenFactory", () => {
 
       await (
         await TokenContract.at(tokenContractsArr[0])
-      ).mintToken(ADDRESS_NULL, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
+      ).mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
         from: USER1,
       });
 
@@ -293,7 +293,7 @@ describe("TokenFactory", () => {
 
       await (
         await TokenContract.at(tokenContractsArr[0])
-      ).mintToken(ADDRESS_NULL, 0, defaultEndTime, defaultTokenURI + 1, sig.r, sig.s, sig.v, {
+      ).mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI + 1, sig.r, sig.s, sig.v, {
         from: USER1,
       });
 
@@ -301,7 +301,7 @@ describe("TokenFactory", () => {
 
       await (
         await TokenContract.at(tokenContractsArr[2])
-      ).mintToken(ADDRESS_NULL, 0, defaultEndTime, defaultTokenURI + 2, sig.r, sig.s, sig.v, {
+      ).mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI + 2, sig.r, sig.s, sig.v, {
         from: USER1,
       });
 

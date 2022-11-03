@@ -4,8 +4,10 @@ pragma solidity ^0.8.9;
 import "./ITokenFactory.sol";
 
 interface ITokenContract {
-    event PaymentSuccessful(address indexed tokenAddress, uint256 tokenAmount, uint256 tokenPrice);
+    event TokenContractParamsUpdated(uint256 newPrice, string tokenName, string tokenSymbol);
+    event PaidTokensWithdrawn(address indexed tokenAddr, address recipient, uint256 amount);
     event TokenMinted(address indexed recipient, uint256 tokenId, string tokenURI);
+    event PaymentSuccessful(address indexed tokenAddress, uint256 tokenAmount, uint256 tokenPrice);
 
     function __TokenContract_init(
         string memory tokenName_,
@@ -20,11 +22,17 @@ interface ITokenContract {
 
     function existingTokenURIs(string memory tokenURI_) external view returns (bool);
 
-    function updatePricePerOneToken(uint256 newPrice_) external;
+    function updateTokenContractParams(
+        uint256 newPrice_,
+        string memory newTokenName_,
+        string memory newTokenSymbol_
+    ) external;
 
     function pause() external;
 
     function unpause() external;
+
+    function withdrawPaidTokens(address tokenAddr_, address recipient_) external;
 
     function mintToken(
         address paymentTokenAddress_,

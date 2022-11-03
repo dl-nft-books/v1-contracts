@@ -25,13 +25,10 @@ ETHERSCAN_KEY = "ETHERSCAN API KEY"
 BSCSCAN_KEY = "BSCSCAN API KEY"
 COINMARKETCAP_KEY = "COINMARKETCAP API KEY"
 
-CONFIRMATIONS = "CONFIRMATIONS COUNT"
-VERIFY = "IS VERIFY"
-
 # Available targets: 'ethers-v5', 'truffle-v5' and 'web3-v1'
 # By default 'ethers-v5'
 TYPECHAIN_TARGET = "TYPECHAIN TARGET"
-
+TYPECHAIN_FORCE = "FORCE FLAG"
 ```
 
 Next, you need to fill out file **deploy/data/tokenFactoryParams.json**, which is the configuration for the **TokenFactory** contract deployment
