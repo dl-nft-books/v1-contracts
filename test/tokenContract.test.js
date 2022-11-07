@@ -435,6 +435,7 @@ describe("TokenContract", () => {
       );
 
       assert.equal(tx.receipt.logs[0].event, "PaymentSuccessful");
+      assert.equal(tx.receipt.logs[0].args.payerAddr, USER1);
       assert.equal(tx.receipt.logs[0].args.tokenAddress, ZERO_ADDR);
       assert.equal(toBN(tx.receipt.logs[0].args.tokenAmount).toFixed(), expectedCurrencyCount.toFixed());
       assert.equal(toBN(tx.receipt.logs[0].args.tokenPrice).toFixed(), tokenPrice.toFixed());
@@ -487,6 +488,7 @@ describe("TokenContract", () => {
       assert.equal(await tokenContract.ownerOf(0), USER1);
 
       assert.equal(tx.receipt.logs[0].event, "PaymentSuccessful");
+      assert.equal(tx.receipt.logs[0].args.payerAddr, USER1);
       assert.equal(tx.receipt.logs[0].args.tokenAddress, paymentToken.address);
       assert.equal(toBN(tx.receipt.logs[0].args.tokenAmount).toFixed(), expectedTokensCount.toFixed());
       assert.equal(toBN(tx.receipt.logs[0].args.tokenPrice).toFixed(), tokenPrice.toFixed());

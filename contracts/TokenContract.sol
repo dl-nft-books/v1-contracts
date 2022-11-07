@@ -222,7 +222,7 @@ contract TokenContract is
             amountToPay_.from18(tokenAddr_.decimals())
         );
 
-        emit PaymentSuccessful(address(tokenAddr_), amountToPay_, tokenPrice_);
+        emit PaymentSuccessful(msg.sender, address(tokenAddr_), amountToPay_, tokenPrice_);
     }
 
     function _payWithETH(uint256 ethPrice_) internal {
@@ -237,7 +237,7 @@ contract TokenContract is
             require(success_, "TokenContract: Failed to return currency.");
         }
 
-        emit PaymentSuccessful(address(0), amountToPay_, ethPrice_);
+        emit PaymentSuccessful(msg.sender, address(0), amountToPay_, ethPrice_);
     }
 
     function _baseURI() internal view override returns (string memory) {

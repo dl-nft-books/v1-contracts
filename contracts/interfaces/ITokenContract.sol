@@ -7,7 +7,12 @@ interface ITokenContract {
     event TokenContractParamsUpdated(uint256 newPrice, string tokenName, string tokenSymbol);
     event PaidTokensWithdrawn(address indexed tokenAddr, address recipient, uint256 amount);
     event TokenMinted(address indexed recipient, uint256 tokenId, string tokenURI);
-    event PaymentSuccessful(address indexed tokenAddress, uint256 tokenAmount, uint256 tokenPrice);
+    event PaymentSuccessful(
+        address indexed payerAddr,
+        address indexed tokenAddress,
+        uint256 tokenAmount,
+        uint256 tokenPrice
+    );
 
     function __TokenContract_init(
         string memory tokenName_,
