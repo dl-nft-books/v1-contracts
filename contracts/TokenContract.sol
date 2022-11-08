@@ -153,13 +153,18 @@ contract TokenContract is
 
         require(block.timestamp <= endTimestamp_, "TokenContract: Signature expired.");
 
+        uint256 amountToPay_;
+
         if (paymentTokenPrice_ != 0) {
             if (paymentTokenAddress_ != address(0)) {
                 require(msg.value == 0, "TokenContract: Currency amount must be a zero.");
 
-                _payWithERC20(IERC20Metadata(paymentTokenAddress_), paymentTokenPrice_);
+                amountToPay_ = _payWithERC20(
+                    IERC20Metadata(paymentTokenAddress_),
+                    paymentTokenPrice_
+                );
             } else {
-                _payWithETH(paymentTokenPrice_);
+                amountToPay_ = _payWithETH(paymentTokenPrice_);
             }
         }
 
@@ -170,7 +175,14 @@ contract TokenContract is
         _tokenURIs[currentTokenId_] = tokenURI_;
         existingTokenURIs[tokenURI_] = true;
 
-        emit TokenMinted(msg.sender, currentTokenId_, tokenURI_);
+        emit SuccessfullyMinted(
+            msg.sender,
+            currentTokenId_,
+            tokenURI_,
+            paymentTokenAddress_,
+            amountToPay_,
+            paymentTokenPrice_
+        );
     }
 
     function getUserTokenIDs(address userAddr_)
@@ -213,7 +225,10 @@ contract TokenContract is
         return _tokenSymbol;
     }
 
-    function _payWithERC20(IERC20Metadata tokenAddr_, uint256 tokenPrice_) internal {
+    function _payWithERC20(IERC20Metadata tokenAddr_, uint256 tokenPrice_)
+        internal
+        returns (uint256)
+    {
         uint256 amountToPay_ = (pricePerOneToken * DECIMAL) / tokenPrice_;
 
         tokenAddr_.safeTransferFrom(
@@ -222,10 +237,10 @@ contract TokenContract is
             amountToPay_.from18(tokenAddr_.decimals())
         );
 
-        emit PaymentSuccessful(msg.sender, address(tokenAddr_), amountToPay_, tokenPrice_);
+        return amountToPay_;
     }
 
-    function _payWithETH(uint256 ethPrice_) internal {
+    function _payWithETH(uint256 ethPrice_) internal returns (uint256) {
         uint256 amountToPay_ = (pricePerOneToken * DECIMAL) / ethPrice_;
 
         require(msg.value >= amountToPay_, "TokenContract: Invalid currency amount.");
@@ -237,7 +252,7 @@ contract TokenContract is
             require(success_, "TokenContract: Failed to return currency.");
         }
 
-        emit PaymentSuccessful(msg.sender, address(0), amountToPay_, ethPrice_);
+        return amountToPay_;
     }
 
     function _baseURI() internal view override returns (string memory) {

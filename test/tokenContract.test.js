@@ -387,9 +387,13 @@ describe("TokenContract", () => {
         }
       );
 
-      assert.equal(tx.receipt.logs[1].event, "TokenMinted");
+      assert.equal(tx.receipt.logs[1].event, "SuccessfullyMinted");
       assert.equal(tx.receipt.logs[1].args.recipient, USER1);
-      assert.equal(toBN(tx.receipt.logs[1].args.tokenId).toFixed(), 0);
+      assert.equal(toBN(tx.receipt.logs[1].args.mintedTokenId).toFixed(), 0);
+      assert.equal(tx.receipt.logs[1].args.tokenURI, defaultTokenURI);
+      assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, paymentToken.address);
+      assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), 0);
+      assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), 0);
 
       assert.equal(await tokenContract.tokenURI(0), baseTokenContractsURI + defaultTokenURI);
       assert.equal(await tokenContract.ownerOf(0), USER1);
@@ -434,11 +438,11 @@ describe("TokenContract", () => {
         wei(0.001).toNumber()
       );
 
-      assert.equal(tx.receipt.logs[0].event, "PaymentSuccessful");
-      assert.equal(tx.receipt.logs[0].args.payerAddr, USER1);
-      assert.equal(tx.receipt.logs[0].args.tokenAddress, ZERO_ADDR);
-      assert.equal(toBN(tx.receipt.logs[0].args.tokenAmount).toFixed(), expectedCurrencyCount.toFixed());
-      assert.equal(toBN(tx.receipt.logs[0].args.tokenPrice).toFixed(), tokenPrice.toFixed());
+      assert.equal(tx.receipt.logs[1].event, "SuccessfullyMinted");
+      assert.equal(tx.receipt.logs[1].args.recipient, USER1);
+      assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, ZERO_ADDR);
+      assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedCurrencyCount.toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
     });
 
     it("should correctly pay with ETH without extra currency", async () => {
@@ -487,11 +491,11 @@ describe("TokenContract", () => {
       );
       assert.equal(await tokenContract.ownerOf(0), USER1);
 
-      assert.equal(tx.receipt.logs[0].event, "PaymentSuccessful");
-      assert.equal(tx.receipt.logs[0].args.payerAddr, USER1);
-      assert.equal(tx.receipt.logs[0].args.tokenAddress, paymentToken.address);
-      assert.equal(toBN(tx.receipt.logs[0].args.tokenAmount).toFixed(), expectedTokensCount.toFixed());
-      assert.equal(toBN(tx.receipt.logs[0].args.tokenPrice).toFixed(), tokenPrice.toFixed());
+      assert.equal(tx.receipt.logs[1].event, "SuccessfullyMinted");
+      assert.equal(tx.receipt.logs[1].args.recipient, USER1);
+      assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, paymentToken.address);
+      assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedTokensCount.toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
     });
 
     it("should get exception if transfer currency failed", async () => {
