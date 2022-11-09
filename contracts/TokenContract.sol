@@ -177,8 +177,7 @@ contract TokenContract is
 
         emit SuccessfullyMinted(
             msg.sender,
-            currentTokenId_,
-            tokenURI_,
+            MintedTokenInfo(currentTokenId_, pricePerOneToken, tokenURI_),
             paymentTokenAddress_,
             amountToPay_,
             paymentTokenPrice_

@@ -389,8 +389,12 @@ describe("TokenContract", () => {
 
       assert.equal(tx.receipt.logs[1].event, "SuccessfullyMinted");
       assert.equal(tx.receipt.logs[1].args.recipient, USER1);
-      assert.equal(toBN(tx.receipt.logs[1].args.mintedTokenId).toFixed(), 0);
-      assert.equal(tx.receipt.logs[1].args.tokenURI, defaultTokenURI);
+      assert.equal(toBN(tx.receipt.logs[1].args.mintedTokenInfo.tokenId).toFixed(), 0);
+      assert.equal(
+        toBN(tx.receipt.logs[1].args.mintedTokenInfo.pricePerOneToken).toFixed(),
+        defaultPricePerOneToken.toFixed()
+      );
+      assert.equal(tx.receipt.logs[1].args.mintedTokenInfo.tokenURI, defaultTokenURI);
       assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, paymentToken.address);
       assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), 0);
       assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), 0);
