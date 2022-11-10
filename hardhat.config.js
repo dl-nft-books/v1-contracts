@@ -43,14 +43,13 @@ module.exports = {
       accounts: privateKey(),
       gasMultiplier: 1.2,
     },
-    chapel: {
-      url: "https://data-seed-prebsc-1-s1.binance.org:8545",
+    mumbai: {
+      url: "https://rpc-mumbai.maticvigil.com/",
       accounts: privateKey(),
       gasMultiplier: 1.2,
-      timeout: 60000,
     },
-    bsc_mainnet: {
-      url: "https://bsc-dataseed.binance.org/",
+    polygon_mainnet: {
+      url: "https://polygon-rpc.com/",
       accounts: privateKey(),
       gasMultiplier: 1.2,
     },
