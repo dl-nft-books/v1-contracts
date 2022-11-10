@@ -23,7 +23,7 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable, EIP
             "Create(uint256 tokenContractId,bytes32 tokenName,bytes32 tokenSymbol,uint256 pricePerOneToken)"
         );
 
-    ProxyBeacon public override poolsBeacon;
+    ProxyBeacon public override tokenContractsBeacon;
     uint8 public override priceDecimals;
     string public override baseTokenContractsURI;
 
@@ -40,7 +40,7 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable, EIP
         __Ownable_init();
         __EIP712_init("TokenFactory", "1");
 
-        poolsBeacon = new ProxyBeacon();
+        tokenContractsBeacon = new ProxyBeacon();
         priceDecimals = priceDecimals_;
         baseTokenContractsURI = baseTokenContractsURI_;
 
@@ -60,8 +60,8 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable, EIP
     }
 
     function setNewImplementation(address newImplementation_) external override onlyOwner {
-        if (poolsBeacon.implementation() != newImplementation_) {
-            poolsBeacon.upgrade(newImplementation_);
+        if (tokenContractsBeacon.implementation() != newImplementation_) {
+            tokenContractsBeacon.upgrade(newImplementation_);
         }
     }
 
@@ -102,7 +102,9 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable, EIP
         address signer_ = ECDSA.recover(_hashTypedDataV4(structHash_), v_, r_, s_);
         require(isAdmin(signer_), "TokenFactory: Invalid signature.");
 
-        address newTokenContract_ = address(new PublicBeaconProxy(address(poolsBeacon), ""));
+        address newTokenContract_ = address(
+            new PublicBeaconProxy(address(tokenContractsBeacon), "")
+        );
 
         ITokenContract(newTokenContract_).__TokenContract_init(
             tokenName_,
@@ -124,7 +126,7 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable, EIP
     }
 
     function getTokenContractsImpl() external view override returns (address) {
-        return poolsBeacon.implementation();
+        return tokenContractsBeacon.implementation();
     }
 
     function getTokenContractsCount() external view override returns (uint256) {
