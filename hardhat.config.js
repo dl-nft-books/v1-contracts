@@ -49,7 +49,7 @@ module.exports = {
       gasMultiplier: 1.2,
     },
     polygon_mainnet: {
-      url: "https://polygon-rpc.com/",
+      url: "https://matic-mainnet.chainstacklabs.com",
       accounts: privateKey(),
       gasMultiplier: 1.2,
     },
@@ -74,6 +74,7 @@ module.exports = {
       goerli: `${process.env.ETHERSCAN_KEY}`,
       bsc: `${process.env.BSCSCAN_KEY}`,
       bscTestnet: `${process.env.BSCSCAN_KEY}`,
+      polygon: `${process.env.POLYGON_KEY}`,
     },
   },
   mocha: {
