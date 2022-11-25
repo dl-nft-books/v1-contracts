@@ -20,7 +20,7 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable, EIP
 
     bytes32 internal constant _CREATE_TYPEHASH =
         keccak256(
-            "Create(uint256 tokenContractId,bytes32 tokenName,bytes32 tokenSymbol,uint256 pricePerOneToken)"
+            "Create(uint256 tokenContractId,bytes32 tokenName,bytes32 tokenSymbol,uint256 pricePerOneToken,address voucherTokenContract,uint256 voucherTokensAmount)"
         );
 
     ProxyBeacon public override tokenContractsBeacon;
@@ -76,26 +76,25 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable, EIP
     }
 
     function deployTokenContract(
-        uint256 tokenContractId_,
-        string memory tokenName_,
-        string memory tokenSymbol_,
-        uint256 pricePerOneToken_,
+        DeployTokenContractParams calldata params_,
         bytes32 r_,
         bytes32 s_,
         uint8 v_
     ) external override {
         require(
-            tokenContractByIndex[tokenContractId_] == address(0),
+            tokenContractByIndex[params_.tokenContractId] == address(0),
             "TokenFactory: TokenContract with such id already exists."
         );
 
         bytes32 structHash_ = keccak256(
             abi.encode(
                 _CREATE_TYPEHASH,
-                tokenContractId_,
-                keccak256(abi.encodePacked(tokenName_)),
-                keccak256(abi.encodePacked(tokenSymbol_)),
-                pricePerOneToken_
+                params_.tokenContractId,
+                keccak256(abi.encodePacked(params_.tokenName)),
+                keccak256(abi.encodePacked(params_.tokenSymbol)),
+                params_.pricePerOneToken,
+                params_.voucherTokenContract,
+                params_.voucherTokensAmount
             )
         );
 
@@ -107,22 +106,18 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable, EIP
         );
 
         ITokenContract(newTokenContract_).__TokenContract_init(
-            tokenName_,
-            tokenSymbol_,
+            params_.tokenName,
+            params_.tokenSymbol,
             address(this),
-            pricePerOneToken_
+            params_.pricePerOneToken,
+            params_.voucherTokenContract,
+            params_.voucherTokensAmount
         );
 
         _tokenContracts.add(newTokenContract_);
-        tokenContractByIndex[tokenContractId_] = newTokenContract_;
+        tokenContractByIndex[params_.tokenContractId] = newTokenContract_;
 
-        emit TokenContractDeployed(
-            tokenContractId_,
-            newTokenContract_,
-            pricePerOneToken_,
-            tokenName_,
-            tokenSymbol_
-        );
+        emit TokenContractDeployed(newTokenContract_, params_);
     }
 
     function getTokenContractsImpl() external view override returns (address) {

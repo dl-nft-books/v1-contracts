@@ -42,6 +42,11 @@ contract TokenContract is
     mapping(string => bool) public override existingTokenURIs;
     mapping(uint256 => string) internal _tokenURIs;
 
+    // v1.0.0
+
+    address public override voucherTokenContract;
+    uint256 public override voucherTokensAmount;
+
     modifier onlyAdmin() {
         require(
             tokenFactory.isAdmin(msg.sender),
@@ -59,7 +64,9 @@ contract TokenContract is
         string memory tokenName_,
         string memory tokenSymbol_,
         address tokenFactoryAddr_,
-        uint256 pricePerOneToken_
+        uint256 pricePerOneToken_,
+        address voucherTokenContract_,
+        uint256 voucherTokensAmount_
     ) external override initializer {
         __ERC721_init(tokenName_, tokenSymbol_);
         __EIP712_init(tokenName_, "1");
@@ -67,12 +74,9 @@ contract TokenContract is
         __ReentrancyGuard_init();
 
         tokenFactory = ITokenFactory(tokenFactoryAddr_);
-        pricePerOneToken = pricePerOneToken_;
 
-        _tokenName = tokenName_;
-        _tokenSymbol = tokenSymbol_;
-
-        emit TokenContractParamsUpdated(pricePerOneToken_, tokenName_, tokenSymbol_);
+        _updateTokenContractParams(pricePerOneToken_, tokenName_, tokenSymbol_);
+        _updateVoucherParams(voucherTokenContract_, voucherTokensAmount_);
     }
 
     function updateTokenContractParams(
@@ -80,17 +84,25 @@ contract TokenContract is
         string memory newTokenName_,
         string memory newTokenSymbol_
     ) external onlyAdmin {
-        pricePerOneToken = newPrice_;
+        _updateTokenContractParams(newPrice_, newTokenName_, newTokenSymbol_);
+    }
 
-        if (!_compareStrings(newTokenName_, _tokenName)) {
-            _tokenName = newTokenName_;
-        }
+    function updateVoucherParams(address newVoucherTokenContract_, uint256 newVoucherTokensAmount_)
+        external
+        onlyAdmin
+    {
+        _updateVoucherParams(newVoucherTokenContract_, newVoucherTokensAmount_);
+    }
 
-        if (!_compareStrings(newTokenSymbol_, _tokenSymbol)) {
-            _tokenSymbol = newTokenSymbol_;
-        }
-
-        emit TokenContractParamsUpdated(newPrice_, newTokenName_, newTokenSymbol_);
+    function updateAllParams(
+        uint256 newPrice_,
+        address newVoucherTokenContract_,
+        uint256 newVoucherTokensAmount_,
+        string memory newTokenName_,
+        string memory newTokenSymbol_
+    ) external onlyAdmin {
+        _updateTokenContractParams(newPrice_, newTokenName_, newTokenSymbol_);
+        _updateVoucherParams(newVoucherTokenContract_, newVoucherTokensAmount_);
     }
 
     function pause() external override onlyAdmin {
@@ -155,16 +167,14 @@ contract TokenContract is
 
         uint256 amountToPay_;
 
-        if (paymentTokenPrice_ != 0) {
-            if (paymentTokenAddress_ != address(0)) {
-                require(msg.value == 0, "TokenContract: Currency amount must be a zero.");
-
+        if (paymentTokenPrice_ != 0 || paymentTokenAddress_ != address(0)) {
+            if (paymentTokenAddress_ == address(0)) {
+                amountToPay_ = _payWithETH(paymentTokenPrice_);
+            } else {
                 amountToPay_ = _payWithERC20(
                     IERC20Metadata(paymentTokenAddress_),
                     paymentTokenPrice_
                 );
-            } else {
-                amountToPay_ = _payWithETH(paymentTokenPrice_);
             }
         }
 
@@ -224,11 +234,38 @@ contract TokenContract is
         return _tokenSymbol;
     }
 
+    function _updateTokenContractParams(
+        uint256 newPrice_,
+        string memory newTokenName_,
+        string memory newTokenSymbol_
+    ) internal {
+        pricePerOneToken = newPrice_;
+
+        _tokenName = newTokenName_;
+        _tokenSymbol = newTokenSymbol_;
+
+        emit TokenContractParamsUpdated(newPrice_, newTokenName_, newTokenSymbol_);
+    }
+
+    function _updateVoucherParams(
+        address newVoucherTokenContract_,
+        uint256 newVoucherTokensAmount_
+    ) internal {
+        voucherTokenContract = newVoucherTokenContract_;
+        voucherTokensAmount = newVoucherTokensAmount_;
+
+        emit VoucherParamsUpdated(newVoucherTokenContract_, newVoucherTokensAmount_);
+    }
+
     function _payWithERC20(IERC20Metadata tokenAddr_, uint256 tokenPrice_)
         internal
         returns (uint256)
     {
-        uint256 amountToPay_ = (pricePerOneToken * DECIMAL) / tokenPrice_;
+        require(msg.value == 0, "TokenContract: Currency amount must be a zero.");
+
+        uint256 amountToPay_ = tokenPrice_ != 0
+            ? (pricePerOneToken * DECIMAL) / tokenPrice_
+            : voucherTokensAmount;
 
         tokenAddr_.safeTransferFrom(
             msg.sender,
@@ -260,13 +297,5 @@ contract TokenContract is
 
     function _EIP712NameHash() internal view override returns (bytes32) {
         return keccak256(bytes(_tokenName));
-    }
-
-    function _compareStrings(string memory firstStr_, string memory secondStr_)
-        internal
-        pure
-        returns (bool)
-    {
-        return keccak256(abi.encodePacked(firstStr_)) == keccak256(abi.encodePacked(secondStr_));
     }
 }
