@@ -5,6 +5,24 @@ import "@dlsl/dev-modules/pool-contracts-registry/ProxyBeacon.sol";
 
 interface ITokenFactory {
     /**
+     * @notice The structure that stores information about deploy token contract params
+     * @param tokenContractId the deployed token contract ID
+     * @param tokenName the token name of the deployed contract
+     * @param tokenSymbol the token symbol of the deployed contract
+     * @param pricePerOneToken the price per one token
+     * @param voucherTokenContract the address of the voucher token contract
+     * @param voucherTokensAmount the amount of voucher tokens
+     */
+    struct DeployTokenContractParams {
+        uint256 tokenContractId;
+        string tokenName;
+        string tokenSymbol;
+        uint256 pricePerOneToken;
+        address voucherTokenContract;
+        uint256 voucherTokensAmount;
+    }
+
+    /**
      * @notice The structure that stores base information about the TokenContract
      * @param tokenContractAddr the address of the TokenContract
      * @param pricePerOneToken the price per one token in USD
@@ -39,18 +57,12 @@ interface ITokenFactory {
 
     /**
      * @notice This event is emitted during the creation of a new TokenContract
-     * @param tokenContractId the deployed token contract ID
      * @param newTokenContractAddr the address of the created token contract
-     * @param pricePerOneToken the price per one token
-     * @param tokenName the token name of the deployed contract
-     * @param tokenSymbol the token symbol of the deployed contract
+     * @param tokenContractParams struct with the token contract params
      */
     event TokenContractDeployed(
-        uint256 tokenContractId,
         address newTokenContractAddr,
-        uint256 pricePerOneToken,
-        string tokenName,
-        string tokenSymbol
+        DeployTokenContractParams tokenContractParams
     );
 
     /**
@@ -89,19 +101,13 @@ interface ITokenFactory {
 
     /**
      * @notice The function for deploying new instances of TokenContract
-     * @param tokenContractId_ the ID of the deployed TokenContract
-     * @param tokenName_ the name of the deployed TokenContract
-     * @param tokenSymbol_ the symbol of the deployed TokenContract
-     * @param pricePerOneToken_ the price per one token of the deployed TokenContract
+     * @param params_ structure with the deploy token contract params
      * @param r_ the r parameter of the ECDSA signature
      * @param s_ the s parameter of the ECDSA signature
      * @param v_ the v parameter of the ECDSA signature
      */
     function deployTokenContract(
-        uint256 tokenContractId_,
-        string memory tokenName_,
-        string memory tokenSymbol_,
-        uint256 pricePerOneToken_,
+        DeployTokenContractParams calldata params_,
         bytes32 r_,
         bytes32 s_,
         uint8 v_

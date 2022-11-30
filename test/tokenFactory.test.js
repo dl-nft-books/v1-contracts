@@ -31,6 +31,8 @@ describe("TokenFactory", () => {
   const defaultTokenName = "tokenName";
   const defaultTokenSymbol = "tokenSymbol";
   const defaultPricePerOneToken = wei(10, priceDecimals);
+  const defaultVoucherTokensAmount = wei(1);
+  let defaultVoucherContract;
 
   let OWNER;
   let USER1;
@@ -71,6 +73,8 @@ describe("TokenFactory", () => {
     tokenName = defaultTokenName,
     tokenSymbol = defaultTokenSymbol,
     pricePerOneToken = defaultPricePerOneToken.toFixed(),
+    voucherTokenContract = defaultVoucherContract.address,
+    voucherTokensAmount = defaultVoucherTokensAmount.toFixed(),
   }) {
     const buffer = Buffer.from(privateKey, "hex");
 
@@ -84,6 +88,8 @@ describe("TokenFactory", () => {
       tokenName: web3.utils.soliditySha3(tokenName),
       tokenSymbol: web3.utils.soliditySha3(tokenSymbol),
       pricePerOneToken,
+      voucherTokenContract,
+      voucherTokensAmount,
     };
 
     return signCreate(domain, create, buffer);
@@ -94,19 +100,20 @@ describe("TokenFactory", () => {
     tokenName_ = defaultTokenName,
     tokenSymbol_ = defaultTokenSymbol,
     pricePerOneToken_ = defaultPricePerOneToken.toFixed(),
+    voucherTokenContract_ = defaultVoucherContract.address,
+    voucherTokensAmount_ = defaultVoucherTokensAmount.toFixed(),
   }) {
     const sig = signCreateTest({
       tokenContractId: tokenContractId_,
       tokenName: tokenName_,
       tokenSymbol: tokenSymbol_,
       pricePerOneToken: pricePerOneToken_,
+      voucherTokenContract: voucherTokenContract_,
+      voucherTokensAmount: voucherTokensAmount_,
     });
 
     return await tokenFactory.deployTokenContract(
-      tokenContractId_,
-      tokenName_,
-      tokenSymbol_,
-      pricePerOneToken_,
+      [tokenContractId_, tokenName_, tokenSymbol_, pricePerOneToken_, voucherTokenContract_, voucherTokensAmount_],
       sig.r,
       sig.s,
       sig.v,
@@ -119,6 +126,8 @@ describe("TokenFactory", () => {
     USER1 = await accounts(1);
     ADMIN1 = await accounts(2);
     ADMIN2 = await accounts(3);
+
+    defaultVoucherContract = await ERC20Mock.new("Test Voucher Token", "TVT", 18);
 
     tokenFactoryImpl = await TokenFactory.new();
     const _tokenFactoryProxy = await PublicERC1967Proxy.new(tokenFactoryImpl.address, "0x");
@@ -265,14 +274,25 @@ describe("TokenFactory", () => {
       const tx = await deployNewTokenContract({});
 
       assert.equal(tx.receipt.logs[1].event, "TokenContractDeployed");
-      assert.equal(toBN(tx.receipt.logs[1].args.tokenContractId).toString(), defaultTokenContractId);
       assert.equal(
         tx.receipt.logs[1].args.newTokenContractAddr,
         await tokenFactory.tokenContractByIndex(defaultTokenContractId)
       );
-      assert.equal(toBN(tx.receipt.logs[1].args.pricePerOneToken).toString(), defaultPricePerOneToken.toString());
-      assert.equal(tx.receipt.logs[1].args.tokenName, defaultTokenName);
-      assert.equal(tx.receipt.logs[1].args.tokenSymbol, defaultTokenSymbol);
+      assert.equal(
+        toBN(tx.receipt.logs[1].args.tokenContractParams.tokenContractId).toString(),
+        defaultTokenContractId
+      );
+      assert.equal(
+        toBN(tx.receipt.logs[1].args.tokenContractParams.pricePerOneToken).toString(),
+        defaultPricePerOneToken.toString()
+      );
+      assert.equal(tx.receipt.logs[1].args.tokenContractParams.tokenName, defaultTokenName);
+      assert.equal(tx.receipt.logs[1].args.tokenContractParams.tokenSymbol, defaultTokenSymbol);
+      assert.equal(tx.receipt.logs[1].args.tokenContractParams.voucherTokenContract, defaultVoucherContract.address);
+      assert.equal(
+        toBN(tx.receipt.logs[1].args.tokenContractParams.voucherTokensAmount).toString(),
+        defaultVoucherTokensAmount.toString()
+      );
     });
 
     it("should get exception if try to deploy tokenContaract with already existing tokenContractId", async () => {
@@ -281,10 +301,14 @@ describe("TokenFactory", () => {
       const sig = signCreateTest({});
 
       await tokenFactory.deployTokenContract(
-        defaultTokenContractId,
-        defaultTokenName,
-        defaultTokenSymbol,
-        defaultPricePerOneToken,
+        [
+          defaultTokenContractId,
+          defaultTokenName,
+          defaultTokenSymbol,
+          defaultPricePerOneToken,
+          defaultVoucherContract.address,
+          defaultVoucherTokensAmount,
+        ],
         sig.r,
         sig.s,
         sig.v,
@@ -293,10 +317,14 @@ describe("TokenFactory", () => {
 
       await truffleAssert.reverts(
         tokenFactory.deployTokenContract(
-          defaultTokenContractId,
-          defaultTokenName,
-          defaultTokenSymbol,
-          defaultPricePerOneToken,
+          [
+            defaultTokenContractId,
+            defaultTokenName,
+            defaultTokenSymbol,
+            defaultPricePerOneToken,
+            defaultVoucherContract.address,
+            defaultVoucherTokensAmount,
+          ],
           sig.r,
           sig.s,
           sig.v,
@@ -313,10 +341,14 @@ describe("TokenFactory", () => {
 
       await truffleAssert.reverts(
         tokenFactory.deployTokenContract(
-          defaultTokenContractId,
-          defaultTokenName,
-          defaultTokenSymbol,
-          defaultPricePerOneToken,
+          [
+            defaultTokenContractId,
+            defaultTokenName,
+            defaultTokenSymbol,
+            defaultPricePerOneToken,
+            defaultVoucherContract.address,
+            defaultVoucherTokensAmount,
+          ],
           sig.r,
           sig.s,
           sig.v,
