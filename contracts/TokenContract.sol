@@ -8,6 +8,9 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
 import "@dlsl/dev-modules/libs/decimals/DecimalsConverter.sol";
 import "@dlsl/dev-modules/utils/Globals.sol";
@@ -22,7 +25,8 @@ contract TokenContract is
     ERC721EnumerableUpgradeable,
     EIP712Upgradeable,
     PausableUpgradeable,
-    ReentrancyGuardUpgradeable
+    ReentrancyGuardUpgradeable,
+    ERC721Holder
 {
     using DecimalsConverter for uint256;
     using SafeERC20 for IERC20Metadata;
@@ -46,6 +50,12 @@ contract TokenContract is
 
     address public override voucherTokenContract;
     uint256 public override voucherTokensAmount;
+
+    using EnumerableSet for EnumerableSet.UintSet;
+
+    uint256 public offerCounter;
+    mapping(address => EnumerableSet.UintSet) private _offerIdsByMaker;
+    mapping(uint256 => Offer) private _offersByIds;
 
     modifier onlyAdmin() {
         require(
@@ -113,6 +123,16 @@ contract TokenContract is
         _unpause();
     }
 
+    function batchAccept(uint256[] calldata offerIds_) external onlyAdmin {
+        for (uint256 i = 0; i < offerIds_.length; ++i) {
+            _accept(offerIds_[i]);
+        }
+    }
+
+    function accept(uint256 offerId_) public override onlyAdmin {
+        _accept(offerId_);
+    }
+
     function withdrawPaidTokens(address tokenAddr_, address recipient_)
         external
         override
@@ -137,6 +157,48 @@ contract TokenContract is
         }
 
         emit PaidTokensWithdrawn(tokenAddr_, recipient_, amount_);
+    }
+
+    function withdrawOfferredNFT(
+        address token_,
+        uint256 tokenId_,
+        address recepient_
+    ) public override onlyOwner {
+        _withdrawOfferredNFT(token_, tokenId_, recepient_);
+    }
+
+    function batchWithdrawOfferredNFT(
+        address[] calldata tokens_,
+        uint256[] calldata tokenIds_,
+        address recepient_
+    ) external onlyOwner {
+        require(tokens_.length == tokenIds_.length, "Batch withdraw NFT: different array length");
+        for (uint256 i = 0; i < tokens_.length; ++i) {
+            _withdrawOfferredNFT(tokens_[i], tokenIds_[i], recepient_);
+        }
+    }
+
+    function lock(address token_, uint256 tokenId_) external {
+        //this contract should return IERC721Receiver.onERC721Received.selector in onERC721Received
+        IERC721(token_).safeTransferFrom(msg.sender, address(this), tokenId_);
+        _offerIdsByMaker[msg.sender].add(offerCounter);
+        _offersByIds[offerCounter] = Offer(true, msg.sender, token_, tokenId_);
+
+        emit OfferCreated(msg.sender, offerCounter, token_, tokenId_);
+
+        unchecked {
+            offerCounter += 1;
+        }
+    }
+
+    function unlock(uint256 offerId_) external {
+        Offer memory offer_ = _offersByIds[offerId_];
+        require(offer_.isValid, "Unlock: Offer already accepted or not created");
+        require(offer_.maker == msg.sender, "Unlock: Not the creator of the offer");
+        _offersByIds[offerId_].isValid = false;
+        IERC721(offer_.token).safeTransferFrom(address(this), msg.sender, offer_.tokenId);
+
+        emit OfferCanceled(msg.sender, offerId_, offer_.token, offer_.tokenId);
     }
 
     function mintToken(
@@ -209,6 +271,14 @@ contract TokenContract is
         }
     }
 
+    function getUserOfferIds(address user_) external view returns (uint256[] memory) {
+        return _offerIdsByMaker[user_].values();
+    }
+
+    function getOfferById(uint256 offerId_) external view returns (Offer memory) {
+        return _offersByIds[offerId_];
+    }
+
     function owner() public view override returns (address) {
         return IOwnable(address(tokenFactory)).owner();
     }
@@ -232,6 +302,23 @@ contract TokenContract is
 
     function symbol() public view override returns (string memory) {
         return _tokenSymbol;
+    }
+
+    function _withdrawOfferredNFT(
+        address token_,
+        uint256 tokenId_,
+        address recepient_
+    ) internal {
+        IERC721(token_).safeTransferFrom(address(this), recepient_, tokenId_);
+        emit NftWihdrawn(token_, tokenId_, recepient_);
+    }
+
+    function _accept(uint256 offerId_) internal {
+        Offer memory offer_ = _offersByIds[offerId_];
+        require(offer_.isValid, "Accept: Offer already accepted or not created");
+        _offersByIds[offerId_].isValid = false;
+
+        emit OfferAccepted(offer_.maker, offerId_, offer_.token, offer_.tokenId);
     }
 
     function _updateTokenContractParams(
