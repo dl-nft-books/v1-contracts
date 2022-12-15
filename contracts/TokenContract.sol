@@ -55,6 +55,7 @@ contract TokenContract is
 
     mapping(address => EnumerableSet.UintSet) private _userOfferIds;
     mapping(uint256 => Offer) public offers;
+    mapping(address => mapping(uint256 => uint256)) private _offerIdByTokenAndTokenId;
 
     modifier onlyAdmin() {
         require(
@@ -126,10 +127,8 @@ contract TokenContract is
         for (uint256 i = 0; i < offerIds_.length; ++i) {
             _accept(offerIds_[i]);
         }
-    }
 
-    function accept(uint256 offerId_) public override onlyAdmin {
-        _accept(offerId_);
+        emit OffersAccepted(offerIds_);
     }
 
     function withdrawPaidTokens(address tokenAddr_, address recipient_)
@@ -158,43 +157,42 @@ contract TokenContract is
         emit PaidTokensWithdrawn(tokenAddr_, recipient_, amount_);
     }
 
-    function withdrawOfferredNFT(
+    function batchWithdrawOfferredNFTs(
         address token_,
-        uint256 tokenId_,
-        address recepient_
-    ) public override onlyOwner {
-        _withdrawOfferredNFT(token_, tokenId_, recepient_);
-    }
-
-    function batchWithdrawOfferredNFT(
-        address[] calldata tokens_,
         uint256[] calldata tokenIds_,
         address recepient_
     ) external onlyOwner {
-        require(tokens_.length == tokenIds_.length, "TokenContract: different array length");
-        for (uint256 i = 0; i < tokens_.length; ++i) {
-            _withdrawOfferredNFT(tokens_[i], tokenIds_[i], recepient_);
+        for (uint256 i = 0; i < tokenIds_.length; ++i) {
+            uint256 correspondingOfferId_ = _offerIdByTokenAndTokenId[token_][tokenIds_[i]];
+            require(
+                !offers[correspondingOfferId_].isActive,
+                "TokenContract: can't withdraw NFT from active offer"
+            );
+
+            IERC721(token_).safeTransferFrom(address(this), recepient_, tokenIds_[i]);
         }
+
+        emit NFTsWithdrawn(token_, tokenIds_, recepient_);
     }
 
-    function lock(address token_, uint256 tokenId_) external {
-        //this contract should return IERC721Receiver.onERC721Received.selector in onERC721Received
+    function createOffer(address token_, uint256 tokenId_) external {
         IERC721(token_).safeTransferFrom(msg.sender, address(this), tokenId_);
-        _userOfferIds[msg.sender].add(offerCounter);
-        offers[offerCounter] = Offer(true, msg.sender, token_, tokenId_);
 
-        emit OfferCreated(msg.sender, offerCounter, token_, tokenId_);
+        uint256 currentOfferCounter_ = offerCounter++;
+        _userOfferIds[msg.sender].add(currentOfferCounter_);
+        offers[currentOfferCounter_] = Offer(true, msg.sender, token_, tokenId_);
+        _offerIdByTokenAndTokenId[token_][tokenId_] = currentOfferCounter_;
 
-        unchecked {
-            offerCounter += 1;
-        }
+        emit OfferCreated(msg.sender, currentOfferCounter_, token_, tokenId_);
     }
 
-    function unlock(uint256 offerId_) external {
+    function cancelOffer(uint256 offerId_) external {
         Offer memory offer_ = offers[offerId_];
-        require(offer_.isValid, "TokenContract: Offer already accepted or not created");
+        require(offer_.isActive, "TokenContract: Offer already accepted or not created");
         require(offer_.maker == msg.sender, "TokenContract: Not the creator of the offer");
-        offers[offerId_].isValid = false;
+
+        offers[offerId_].isActive = false;
+
         IERC721(offer_.token).safeTransferFrom(address(this), msg.sender, offer_.tokenId);
 
         emit OfferCanceled(msg.sender, offerId_, offer_.token, offer_.tokenId);
@@ -312,21 +310,11 @@ contract TokenContract is
         return this.onERC721Received.selector;
     }
 
-    function _withdrawOfferredNFT(
-        address token_,
-        uint256 tokenId_,
-        address recepient_
-    ) internal {
-        IERC721(token_).safeTransferFrom(address(this), recepient_, tokenId_);
-        emit NftWihdrawn(token_, tokenId_, recepient_);
-    }
-
     function _accept(uint256 offerId_) internal {
         Offer memory offer_ = offers[offerId_];
-        require(offer_.isValid, "TokenContract: Offer already accepted or not created");
-        offers[offerId_].isValid = false;
+        require(offer_.isActive, "TokenContract: Offer already accepted or not created");
 
-        emit OfferAccepted(offer_.maker, offerId_, offer_.token, offer_.tokenId);
+        offers[offerId_].isActive = false;
     }
 
     function _updateTokenContractParams(

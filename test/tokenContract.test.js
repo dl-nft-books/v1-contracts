@@ -150,8 +150,8 @@ describe("TokenContract", () => {
     defaultEndTime = toBN(await getCurrentBlockTime()).plus(signDuration);
 
     await nftForExchange.mintBatch(OWNER, [0, 1, 2]);
-    await nftForExchange.mintBatch(USER1, [3, 4, 5, 6]);
-    await nftForExchange.mintBatch(USER2, [7, 8]);
+    await nftForExchange.mintBatch(USER1, [3, 4, 5, 6, 7]);
+    await nftForExchange.mintBatch(USER2, [8, 9]);
 
     await paymentToken.mintBatch([OWNER, USER1, USER2], mintTokensAmount);
     await paymentToken.approveBatch([OWNER, USER1, USER2], tokenContract.address, mintTokensAmount);
@@ -843,19 +843,19 @@ describe("TokenContract", () => {
     });
   });
 
-  describe("lock", () => {
+  describe("createOffer", () => {
     beforeEach("setup", async () => {
       await nftForExchange.approve(tokenContract.address, 3, { from: USER1 });
-      await tokenContract.lock(nftForExchange.address, 3, { from: USER1 });
+      await tokenContract.createOffer(nftForExchange.address, 3, { from: USER1 });
     });
 
     it("should transfer the nft correctly", async () => {
       assert.equal(await nftForExchange.ownerOf(3), tokenContract.address);
     });
 
-    it("should add the offerId to the _offerIdsByMaker mapping", async () => {
+    it("should add the offerId to the _userOfferIds mapping", async () => {
       await nftForExchange.approve(tokenContract.address, 4, { from: USER1 });
-      await tokenContract.lock(nftForExchange.address, 4, { from: USER1 });
+      await tokenContract.createOffer(nftForExchange.address, 4, { from: USER1 });
 
       const userOfferIds = await tokenContract.getUserOfferIds(USER1);
       assert.equal(toBN(userOfferIds[0]).toFixed(), toBN(0).toFixed());
@@ -865,14 +865,14 @@ describe("TokenContract", () => {
     it("should increase the offerCounter correctly", async () => {
       assert.equal(toBN(await tokenContract.offerCounter()).toFixed(), toBN(1).toFixed());
       await nftForExchange.approve(tokenContract.address, 5, { from: USER1 });
-      await tokenContract.lock(nftForExchange.address, 5, { from: USER1 });
+      await tokenContract.createOffer(nftForExchange.address, 5, { from: USER1 });
 
       assert.equal(toBN(await tokenContract.offerCounter()).toFixed(), toBN(2).toFixed());
     });
 
     it("should emit the right event", async () => {
       await nftForExchange.approve(tokenContract.address, 6, { from: USER1 });
-      const tx = await tokenContract.lock(nftForExchange.address, 6, { from: USER1 });
+      const tx = await tokenContract.createOffer(nftForExchange.address, 6, { from: USER1 });
 
       assert.equal(tx.receipt.logs[2].event, "OfferCreated");
       assert.equal(toBN(tx.receipt.logs[2].args.offerId).toFixed(), toBN(1).toFixed());
@@ -882,37 +882,37 @@ describe("TokenContract", () => {
     });
   });
 
-  describe("unlock", () => {
+  describe("cancelOffer", () => {
     beforeEach("setup", async () => {
       await nftForExchange.approve(tokenContract.address, 3, { from: USER1 });
-      await tokenContract.lock(nftForExchange.address, 3, { from: USER1 });
+      await tokenContract.createOffer(nftForExchange.address, 3, { from: USER1 });
     });
 
     it("should revert when called by not the offer creator", async () => {
-      const reason = "Unlock: Not the creator of the offer";
-      await truffleAssert.reverts(tokenContract.unlock(0, { from: USER2 }), reason);
+      const reason = "TokenContract: Not the creator of the offer";
+      await truffleAssert.reverts(tokenContract.cancelOffer(0, { from: USER2 }), reason);
     });
 
     it("should revert when the offer is already canceled", async () => {
-      const reason = "Unlock: Offer already accepted or not created";
-      await tokenContract.unlock(0, { from: USER1 });
-      await truffleAssert.reverts(tokenContract.unlock(0, { from: USER1 }), reason);
+      const reason = "TokenContract: Offer already accepted or not created";
+      await tokenContract.cancelOffer(0, { from: USER1 });
+      await truffleAssert.reverts(tokenContract.cancelOffer(0, { from: USER1 }), reason);
     });
 
-    it("should set the offer validit to false", async () => {
+    it("should set the offer status to false", async () => {
       assert.isTrue(Object.values(await tokenContract.getOfferById(0))[0]);
-      await tokenContract.unlock(0, { from: USER1 });
+      await tokenContract.cancelOffer(0, { from: USER1 });
       assert.isFalse(Object.values(await tokenContract.getOfferById(0))[0]);
     });
 
     it("should transfer the nft", async () => {
       assert.equal(await nftForExchange.ownerOf(3), tokenContract.address);
-      await tokenContract.unlock(0, { from: USER1 });
+      await tokenContract.cancelOffer(0, { from: USER1 });
       assert.equal(await nftForExchange.ownerOf(3), USER1);
     });
 
     it("should emit the right event", async () => {
-      const tx = await tokenContract.unlock(0, { from: USER1 });
+      const tx = await tokenContract.cancelOffer(0, { from: USER1 });
 
       assert.equal(tx.receipt.logs[2].event, "OfferCanceled");
       assert.equal(toBN(tx.receipt.logs[2].args.offerId).toFixed(), toBN(0).toFixed());
@@ -922,60 +922,57 @@ describe("TokenContract", () => {
     });
   });
 
-  describe("accept", () => {
+  describe("batchAccept with one tokenId", () => {
     beforeEach("setup", async () => {
       await nftForExchange.approve(tokenContract.address, 3, { from: USER1 });
-      await tokenContract.lock(nftForExchange.address, 3, { from: USER1 });
+      await tokenContract.createOffer(nftForExchange.address, 3, { from: USER1 });
     });
 
     it("should revert when called not by admin ", async () => {
       const reason = "TokenContract: Only admin can call this function.";
-      await truffleAssert.reverts(tokenContract.accept(0, { from: USER1 }), reason);
-      await truffleAssert.reverts(tokenContract.accept(0, { from: USER2 }), reason);
+      await truffleAssert.reverts(tokenContract.batchAccept([0], { from: USER1 }), reason);
+      await truffleAssert.reverts(tokenContract.batchAccept([0], { from: USER2 }), reason);
     });
 
     it("should revert when the offer is not valid", async () => {
-      const reason = "Accept: Offer already accepted or not created";
-      await tokenContract.unlock(0, { from: USER1 });
-      await truffleAssert.reverts(tokenContract.accept(0, { from: OWNER }), reason);
+      const reason = "TokenContract: Offer already accepted or not created";
+      await tokenContract.cancelOffer(0, { from: USER1 });
+      await truffleAssert.reverts(tokenContract.batchAccept([0], { from: OWNER }), reason);
 
       await nftForExchange.approve(tokenContract.address, 4, { from: USER1 });
-      await tokenContract.lock(nftForExchange.address, 4, { from: USER1 });
-      await tokenContract.accept(1, { from: OWNER });
-      await truffleAssert.reverts(tokenContract.accept(1, { from: OWNER }), reason);
+      await tokenContract.createOffer(nftForExchange.address, 4, { from: USER1 });
+      await tokenContract.batchAccept([1], { from: OWNER });
+      await truffleAssert.reverts(tokenContract.batchAccept([1], { from: OWNER }), reason);
     });
 
     it("should set the offer validity to false", async () => {
       assert.isTrue(Object.values(await tokenContract.getOfferById(0))[0]);
-      await tokenContract.accept(0, { from: OWNER });
+      await tokenContract.batchAccept([0], { from: OWNER });
       assert.isFalse(Object.values(await tokenContract.getOfferById(0))[0]);
     });
 
     it("should emit the right event", async () => {
-      const tx = await tokenContract.accept(0, { from: OWNER });
+      const tx = await tokenContract.batchAccept([0], { from: OWNER });
 
-      assert.equal(tx.receipt.logs[0].event, "OfferAccepted");
-      assert.equal(toBN(tx.receipt.logs[0].args.offerId).toFixed(), toBN(0).toFixed());
-      assert.equal(tx.receipt.logs[0].args.maker, USER1);
-      assert.equal(tx.receipt.logs[0].args.token, nftForExchange.address);
-      assert.equal(toBN(tx.receipt.logs[0].args.tokenId).toFixed(), toBN(3).toFixed());
+      assert.equal(tx.receipt.logs[0].event, "OffersAccepted");
+      assert.equal(toBN(tx.receipt.logs[0].args.offerIds).toFixed(), toBN([0]).toFixed());
     });
   });
 
-  describe("batchAccept", () => {
+  describe("batchAccept with multiple tokenIds", () => {
     beforeEach("setup", async () => {
       await nftForExchange.approve(tokenContract.address, 3, { from: USER1 });
-      await tokenContract.lock(nftForExchange.address, 3, { from: USER1 });
+      await tokenContract.createOffer(nftForExchange.address, 3, { from: USER1 });
       await nftForExchange.approve(tokenContract.address, 4, { from: USER1 });
-      await tokenContract.lock(nftForExchange.address, 4, { from: USER1 });
+      await tokenContract.createOffer(nftForExchange.address, 4, { from: USER1 });
       await nftForExchange.approve(tokenContract.address, 5, { from: USER1 });
-      await tokenContract.lock(nftForExchange.address, 5, { from: USER1 });
+      await tokenContract.createOffer(nftForExchange.address, 5, { from: USER1 });
     });
 
     it("should revert when called not by admin ", async () => {
       const reason = "TokenContract: Only admin can call this function.";
       await truffleAssert.reverts(tokenContract.batchAccept([0, 1, 2], { from: USER1 }), reason);
-      await truffleAssert.reverts(tokenContract.accept([0, 1, 2], { from: USER2 }), reason);
+      await truffleAssert.reverts(tokenContract.batchAccept([0, 1, 2], { from: USER2 }), reason);
     });
 
     it("should set the offers' validity to false", async () => {
@@ -990,57 +987,23 @@ describe("TokenContract", () => {
     });
 
     it("should revert if at least one offer is already not valid", async () => {
-      const reason = "Accept: Offer already accepted or not created";
-      await tokenContract.accept(1);
+      const reason = "TokenContract: Offer already accepted or not created";
+      await tokenContract.batchAccept([1]);
       await truffleAssert.reverts(tokenContract.batchAccept([0, 1, 2]), reason);
     });
   });
 
-  describe("withdrawOfferredNFT", () => {
+  describe("batchWithdrawOfferredNFTs", () => {
     beforeEach("setup", async () => {
       await nftForExchange.approve(tokenContract.address, 3, { from: USER1 });
-      await tokenContract.lock(nftForExchange.address, 3, { from: USER1 });
-      await tokenContract.accept(0, { from: OWNER });
-    });
-
-    it("should revert when called not by owner", async () => {
-      const reason = "TokenContract: Only owner can call this function.";
-
-      await truffleAssert.reverts(
-        tokenContract.withdrawOfferredNFT(nftForExchange.address, 3, USER2, { from: USER2 }),
-        reason
-      );
-    });
-
-    it("should transfer nft to recepient", async () => {
-      assert.equal(await nftForExchange.ownerOf(3), tokenContract.address);
-      await truffleAssert.passes(tokenContract.withdrawOfferredNFT(nftForExchange.address, 3, USER2));
-      assert.equal(await nftForExchange.ownerOf(3), USER2);
-    });
-
-    it("should emit the right event", async () => {
-      const tx = await tokenContract.withdrawOfferredNFT(nftForExchange.address, 3, USER2);
-
-      assert.equal(tx.receipt.logs[2].event, "NftWihdrawn");
-      assert.equal(toBN(tx.receipt.logs[2].args.tokenId).toFixed(), toBN(3).toFixed());
-      assert.equal(tx.receipt.logs[2].args.recepient, USER2);
-      assert.equal(tx.receipt.logs[2].args.token, nftForExchange.address);
-    });
-  });
-
-  describe("batchWithdrawOfferredNFT", () => {
-    beforeEach("setup", async () => {
-      await nftForExchange.approve(tokenContract.address, 3, { from: USER1 });
-      await tokenContract.lock(nftForExchange.address, 3, { from: USER1 });
-      await tokenContract.accept(0, { from: OWNER });
+      await tokenContract.createOffer(nftForExchange.address, 3, { from: USER1 });
 
       await nftForExchange.approve(tokenContract.address, 4, { from: USER1 });
-      await tokenContract.lock(nftForExchange.address, 4, { from: USER1 });
-      await tokenContract.accept(1, { from: OWNER });
+      await tokenContract.createOffer(nftForExchange.address, 4, { from: USER1 });
 
       await nftForExchange.approve(tokenContract.address, 5, { from: USER1 });
-      await tokenContract.lock(nftForExchange.address, 5, { from: USER1 });
-      await tokenContract.accept(2, { from: OWNER });
+      await tokenContract.createOffer(nftForExchange.address, 5, { from: USER1 });
+      await tokenContract.batchAccept([0, 1, 2], { from: OWNER });
     });
 
     it("should transfer nft to recepient", async () => {
@@ -1048,7 +1011,7 @@ describe("TokenContract", () => {
       assert.equal(await nftForExchange.ownerOf(4), tokenContract.address);
       assert.equal(await nftForExchange.ownerOf(5), tokenContract.address);
       const nftAddr = nftForExchange.address;
-      await truffleAssert.passes(tokenContract.batchWithdrawOfferredNFT([nftAddr, nftAddr, nftAddr], [3, 4, 5], USER2));
+      await truffleAssert.passes(tokenContract.batchWithdrawOfferredNFTs(nftAddr, [3, 4, 5], USER2));
       assert.equal(await nftForExchange.ownerOf(3), USER2);
       assert.equal(await nftForExchange.ownerOf(4), USER2);
       assert.equal(await nftForExchange.ownerOf(5), USER2);
@@ -1058,7 +1021,7 @@ describe("TokenContract", () => {
       const reason = "TokenContract: Only owner can call this function.";
       const nftAddr = nftForExchange.address;
       await truffleAssert.reverts(
-        tokenContract.batchWithdrawOfferredNFT([nftAddr, nftAddr, nftAddr], [3, 4, 5], USER2, { from: USER2 }),
+        tokenContract.batchWithdrawOfferredNFTs(nftAddr, [3, 4, 5], USER2, { from: USER2 }),
         reason
       );
     });
@@ -1066,21 +1029,36 @@ describe("TokenContract", () => {
     it("should revert if at least one NFT is already withdrawn", async () => {
       const reason = "ERC721: transfer caller is not owner nor approved";
       const nftAddr = nftForExchange.address;
-      await tokenContract.withdrawOfferredNFT(nftForExchange.address, 3, USER2);
-      await truffleAssert.reverts(
-        tokenContract.batchWithdrawOfferredNFT([nftAddr, nftAddr, nftAddr], [3, 4, 5], USER2),
-        reason
-      );
+      await tokenContract.batchWithdrawOfferredNFTs(nftAddr, [3], USER2);
+      await truffleAssert.reverts(tokenContract.batchWithdrawOfferredNFTs(nftAddr, [3, 4, 5], USER2), reason);
     });
 
-    it("should revert if token and tokenId arrays' sizes are different", async () => {
-      const reason = "Batch withdraw NFT: different array length";
+    it("should revert if the corresponding offer was not accepted or canceled", async () => {
       const nftAddr = nftForExchange.address;
-      await truffleAssert.reverts(
-        tokenContract.batchWithdrawOfferredNFT([nftAddr, nftAddr, nftAddr], [3, 5], USER2),
-        reason
-      );
-      await truffleAssert.reverts(tokenContract.batchWithdrawOfferredNFT([nftAddr, nftAddr], [3, 4, 5], USER2), reason);
+
+      await nftForExchange.approve(tokenContract.address, 6, { from: USER1 });
+      await tokenContract.createOffer(nftAddr, 6, { from: USER1 });
+      await nftForExchange.approve(tokenContract.address, 7, { from: USER1 });
+      await tokenContract.createOffer(nftAddr, 7, { from: USER1 });
+
+      await truffleAssert.passes(tokenContract.batchAccept([4]));
+
+      const reason = "TokenContract: can't withdraw NFT from active offer";
+
+      await truffleAssert.reverts(tokenContract.batchWithdrawOfferredNFTs(nftAddr, [6, 7], USER2), reason);
+    });
+
+    it("should emit the right event", async () => {
+      const nftAddr = nftForExchange.address;
+      const tx = await tokenContract.batchWithdrawOfferredNFTs(nftAddr, [3, 4, 5], USER2);
+
+      assert.equal(tx.receipt.logs[6].event, "NFTsWithdrawn");
+      assert.equal(toBN(tx.receipt.logs[6].args.tokenIds[0]).toFixed(), toBN(3).toFixed());
+      assert.equal(toBN(tx.receipt.logs[6].args.tokenIds[1]).toFixed(), toBN(4).toFixed());
+      assert.equal(toBN(tx.receipt.logs[6].args.tokenIds[2]).toFixed(), toBN(5).toFixed());
+
+      assert.equal(tx.receipt.logs[6].args.recepient, USER2);
+      assert.equal(tx.receipt.logs[6].args.token, nftAddr);
     });
   });
 });

@@ -24,13 +24,13 @@ interface ITokenContract {
 
     /**
      * @notice The structure that stores information about the offers made by users
-     * @param isValid the state of the offer
+     * @param isActive the state of the offer
      * @param maker the address of the user who made an offer
      * @param token the address of the NFT offered
      * @param tokenId the ID of the NFT offered
      */
     struct Offer {
-        bool isValid;
+        bool isActive;
         address maker;
         address token;
         uint256 tokenId;
@@ -46,21 +46,18 @@ interface ITokenContract {
     event OfferCreated(address indexed maker, uint256 offerId, address token, uint256 tokenId);
 
     /**
-     * @notice This event is emitted when the owner withdraws the NFT offered for the NFT exchange
-     * @param token the address of the NFT
-     * @param tokenId the ID of the NFT withdrawn
-     * @param recepient the address of the withdraw NFT recepient
+     * @notice This event is emitted when the owner withdraws the NFTs offered for the NFT exchange
+     * @param token NFTs' address
+     * @param tokenIds the array of the withdrawn NFTs' IDs
+     * @param recepient the address of the withdrawn NFTs recepient
      */
-    event NftWihdrawn(address indexed token, uint256 indexed tokenId, address recepient);
+    event NFTsWithdrawn(address indexed token, uint256[] tokenIds, address recepient);
 
     /**
-     * @notice This event is emitted when the admin accepts an offer for the NFT exchange created by user
-     * @param maker the address of the user who created the accepted offer
-     * @param offerId the ID of the accepted offer
-     * @param token the address of the NFT offered in the accepted offer
-     * @param tokenId the ID of the NFT offered in the accepted offer
+     * @notice This event is emitted when the admin accepts offers for the NFT exchange created by user
+     * @param offerIds the array of the accepted offers' IDs
      */
-    event OfferAccepted(address indexed maker, uint256 offerId, address token, uint256 tokenId);
+    event OffersAccepted(uint256[] offerIds);
 
     /**
      * @notice This event is emitted when the user cancels his offer for the NFT exchange created earlier
@@ -151,12 +148,6 @@ interface ITokenContract {
     function unpause() external;
 
     /**
-     * @notice Function to accept the offer user previously created
-     * @param offerId_ the ID of the offer that needs to be accepted
-     */
-    function accept(uint256 offerId_) external;
-
-    /**
      * @notice Function to accept the offers in batches
      * @param offerIds_ the array of IDs of the offers that need to be accepted
      */
@@ -190,42 +181,30 @@ interface ITokenContract {
     ) external payable;
 
     /**
-     * @notice Function to withdraw the NFT that users offered in exchange for tokens
-     * @param token_ the address of the NFT to be withdrawn
-     * @param tokenId_ the ID of the NFT to be withdrawn
-     * @param recipient_ the address of the recipient of the withdrawn NFT
-     */
-    function withdrawOfferredNFT(
-        address token_,
-        uint256 tokenId_,
-        address recipient_
-    ) external;
-
-    /**
      * @notice Function to withdraw the NFTs that users offered in exchange for tokens in batches
-     * @dev tokens_ and tokenIds_ length must be equal
-     * @param tokens_ the array of addresses of the NFTs to be withdrawn
-     * @param tokenIds_ the array of the IDs of the NFTs to be withdrawn
-     * @param recipient_ the address of the recipient of the withdrawn NFTs
+     * @dev the corresponding offer should not be active (must be accepted or canceled)
+     * @param token_ NFTs' address
+     * @param tokenIds_ the array of the withdrawn NFTs' IDs
+     * @param recipient_ the address of the withdrawn NFTs recepient
      */
-    function batchWithdrawOfferredNFT(
-        address[] calldata tokens_,
+    function batchWithdrawOfferredNFTs(
+        address token_,
         uint256[] calldata tokenIds_,
         address recipient_
     ) external;
 
     /**
-     * @notice Function to create an offer for the NFT exchange which locks the NFT offered
+     * @notice Function to create an offer for the NFT exchange which locks the offered NFT
      * @param token_ the address of the NFT to offer
      * @param tokenId_ the ID of the NFT to offer
      */
-    function lock(address token_, uint256 tokenId_) external;
+    function createOffer(address token_, uint256 tokenId_) external;
 
     /**
-     * @notice Function to cancel an offer for the NFT exchange which returns the NFT offered
+     * @notice Function to cancel an offer for the NFT exchange and to unlock the offered NFT
      * @param offerId_ the ID of the offer a user wants to cancel
      */
-    function unlock(uint256 offerId_) external;
+    function cancelOffer(uint256 offerId_) external;
 
     /**
      * @notice The function that returns the address of the token factory
