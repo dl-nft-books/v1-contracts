@@ -8,6 +8,7 @@ contract Attacker {
         uint256 expectedCost;
         address paymentTokenAddress;
         uint256 paymentTokenPrice;
+        uint256 promocode;
         uint256 endTimestamp;
         string tokenURI;
         bytes32 r;
@@ -32,6 +33,7 @@ contract Attacker {
             tokenContract.mintToken{value: params.expectedCost}(
                 params.paymentTokenAddress,
                 params.paymentTokenPrice,
+                params.promocode,
                 params.endTimestamp,
                 params.tokenURI,
                 params.r,
@@ -45,6 +47,7 @@ contract Attacker {
         tokenContract.mintToken{value: msg.value}(
             params.paymentTokenAddress,
             params.paymentTokenPrice,
+            params.promocode,
             params.endTimestamp,
             params.tokenURI,
             params.r,
