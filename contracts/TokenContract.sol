@@ -270,7 +270,7 @@ contract TokenContract is
 
         uint256 amountToPay_ = tokenPrice_ != 0
             ? (((pricePerOneToken * DECIMAL) / tokenPrice_) * (PERCENTAGE_100 - promocode_)) /
-                PERCENTAGE_100
+                PERCENTAGE_100 //or (PERCENTAGE_100 - promocode_)*(pricePerOneToken * DECIMAL) / (tokenPrice_ *PERCENTAGE_100)
             : voucherTokensAmount;
 
         tokenAddr_.safeTransferFrom(
