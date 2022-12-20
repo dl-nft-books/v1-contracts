@@ -222,7 +222,7 @@ interface ITokenContract {
      * @notice The function that returns the counter of the offers created, starts with zero
      * @return ID of the next offer to be created
      */
-    function offerCounter() external view returns (uint256);
+    function offerIdCounter() external view returns (uint256);
 
     /**
      * @notice The function to check if there is a token with the passed token URI

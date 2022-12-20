@@ -862,12 +862,12 @@ describe("TokenContract", () => {
       assert.equal(toBN(userOfferIds[1]).toFixed(), toBN(1).toFixed());
     });
 
-    it("should increase the offerCounter correctly", async () => {
-      assert.equal(toBN(await tokenContract.offerCounter()).toFixed(), toBN(1).toFixed());
+    it("should increase the offerIdCounter correctly", async () => {
+      assert.equal(toBN(await tokenContract.offerIdCounter()).toFixed(), toBN(1).toFixed());
       await nftForExchange.approve(tokenContract.address, 5, { from: USER1 });
       await tokenContract.createOffer(nftForExchange.address, 5, { from: USER1 });
 
-      assert.equal(toBN(await tokenContract.offerCounter()).toFixed(), toBN(2).toFixed());
+      assert.equal(toBN(await tokenContract.offerIdCounter()).toFixed(), toBN(2).toFixed());
     });
 
     it("should emit the right event", async () => {

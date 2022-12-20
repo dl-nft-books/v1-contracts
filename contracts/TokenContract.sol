@@ -22,11 +22,11 @@ import "./interfaces/IOwnable.sol";
 contract TokenContract is
     ITokenContract,
     IOwnable,
+    IERC721Receiver,
     ERC721EnumerableUpgradeable,
     EIP712Upgradeable,
     PausableUpgradeable,
-    ReentrancyGuardUpgradeable,
-    IERC721Receiver
+    ReentrancyGuardUpgradeable
 {
     using DecimalsConverter for uint256;
     using SafeERC20 for IERC20Metadata;
@@ -51,11 +51,11 @@ contract TokenContract is
 
     address public override voucherTokenContract;
     uint256 public override voucherTokensAmount;
-    uint256 public override offerCounter;
+    uint256 public override offerIdCounter;
 
-    mapping(address => EnumerableSet.UintSet) private _userOfferIds;
     mapping(uint256 => Offer) public offers;
-    mapping(address => mapping(uint256 => uint256)) private _offerIdByTokenAndTokenId;
+    mapping(address => EnumerableSet.UintSet) internal _userOfferIds;
+    mapping(address => mapping(uint256 => uint256)) internal _tokenToOfferId;
 
     modifier onlyAdmin() {
         require(
@@ -125,7 +125,12 @@ contract TokenContract is
 
     function batchAccept(uint256[] calldata offerIds_) external onlyAdmin {
         for (uint256 i = 0; i < offerIds_.length; ++i) {
-            _accept(offerIds_[i]);
+            require(
+                offers[offerIds_[i]].isActive,
+                "TokenContract: Offer already accepted or not created"
+            );
+
+            offers[offerIds_[i]].isActive = false;
         }
 
         emit OffersAccepted(offerIds_);
@@ -163,7 +168,7 @@ contract TokenContract is
         address recepient_
     ) external onlyOwner {
         for (uint256 i = 0; i < tokenIds_.length; ++i) {
-            uint256 correspondingOfferId_ = _offerIdByTokenAndTokenId[token_][tokenIds_[i]];
+            uint256 correspondingOfferId_ = _tokenToOfferId[token_][tokenIds_[i]];
             require(
                 !offers[correspondingOfferId_].isActive,
                 "TokenContract: can't withdraw NFT from active offer"
@@ -178,21 +183,22 @@ contract TokenContract is
     function createOffer(address token_, uint256 tokenId_) external {
         IERC721(token_).safeTransferFrom(msg.sender, address(this), tokenId_);
 
-        uint256 currentOfferCounter_ = offerCounter++;
-        _userOfferIds[msg.sender].add(currentOfferCounter_);
-        offers[currentOfferCounter_] = Offer(true, msg.sender, token_, tokenId_);
-        _offerIdByTokenAndTokenId[token_][tokenId_] = currentOfferCounter_;
+        uint256 currentOfferId_ = offerIdCounter++;
 
-        emit OfferCreated(msg.sender, currentOfferCounter_, token_, tokenId_);
+        _userOfferIds[msg.sender].add(currentOfferId_);
+        offers[currentOfferId_] = Offer(true, msg.sender, token_, tokenId_);
+        _tokenToOfferId[token_][tokenId_] = currentOfferId_;
+
+        emit OfferCreated(msg.sender, currentOfferId_, token_, tokenId_);
     }
 
     function cancelOffer(uint256 offerId_) external {
         Offer memory offer_ = offers[offerId_];
+
         require(offer_.isActive, "TokenContract: Offer already accepted or not created");
         require(offer_.maker == msg.sender, "TokenContract: Not the creator of the offer");
 
         offers[offerId_].isActive = false;
-
         IERC721(offer_.token).safeTransferFrom(address(this), msg.sender, offer_.tokenId);
 
         emit OfferCanceled(msg.sender, offerId_, offer_.token, offer_.tokenId);
@@ -308,13 +314,6 @@ contract TokenContract is
         bytes memory
     ) public virtual override returns (bytes4) {
         return this.onERC721Received.selector;
-    }
-
-    function _accept(uint256 offerId_) internal {
-        Offer memory offer_ = offers[offerId_];
-        require(offer_.isActive, "TokenContract: Offer already accepted or not created");
-
-        offers[offerId_].isActive = false;
     }
 
     function _updateTokenContractParams(
