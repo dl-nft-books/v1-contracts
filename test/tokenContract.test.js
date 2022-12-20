@@ -54,7 +54,7 @@ describe("TokenContract", () => {
     privateKey = OWNER_PK,
     paymentTokenAddress = paymentToken.address,
     paymentTokenPrice = tokenPrice.toFixed(),
-    promocode = defaultDiscountValue.toFixed(),
+    discount = defaultDiscountValue.toFixed(),
     endTimestamp = defaultEndTime.toFixed(),
     tokenURI = defaultTokenURI,
     name = defaultTokenName,
@@ -69,7 +69,7 @@ describe("TokenContract", () => {
     const mint = {
       paymentTokenAddress,
       paymentTokenPrice,
-      promocode,
+      discount,
       endTimestamp,
       tokenURI: web3.utils.soliditySha3(tokenURI),
     };
@@ -541,7 +541,7 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, ZERO_ADDR);
       assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), 0);
       assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), 0);
-      assert.equal(toBN(tx.receipt.logs[1].args.promocode).toFixed(), 0);
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), 0);
 
       assert.equal(await tokenContract.tokenURI(0), baseTokenContractsURI + defaultTokenURI);
       assert.equal(await tokenContract.ownerOf(0), USER1);
@@ -568,7 +568,7 @@ describe("TokenContract", () => {
       assert.equal(await tokenContract.balanceOf(USER1), 2);
     });
 
-    it("should correctly pay with ETH for new token with extra currency without promocode", async () => {
+    it("should correctly pay with ETH for new token with extra currency without discount", async () => {
       const balanceBefore = toBN(await web3.eth.getBalance(USER1));
       const sig = signMintTest({ paymentTokenAddress: ZERO_ADDR });
       const expectedCurrencyCount = defaultPricePerOneToken.times(wei(1)).idiv(tokenPrice);
@@ -601,13 +601,13 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, ZERO_ADDR);
       assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedCurrencyCount.toFixed());
       assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
-      assert.equal(toBN(tx.receipt.logs[1].args.promocode).toFixed(), 0);
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), 0);
     });
 
-    it("should correctly pay with ETH for new token with extra currency with promocode", async () => {
+    it("should correctly pay with ETH for new token with extra currency with discount", async () => {
       const balanceBefore = toBN(await web3.eth.getBalance(USER1));
 
-      const sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, promocode: wei(30, 25).toFixed() });
+      const sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, discount: wei(30, 25).toFixed() });
       const expectedCurrencyCount = defaultPricePerOneToken
         .times(wei(1))
         .idiv(tokenPrice)
@@ -643,10 +643,10 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, ZERO_ADDR);
       assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedCurrencyCount.toFixed());
       assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
-      assert.equal(toBN(tx.receipt.logs[1].args.promocode).toFixed(), wei(30, 25).toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), wei(30, 25).toFixed());
     });
 
-    it("should correctly pay with ETH without extra currency without promocode", async () => {
+    it("should correctly pay with ETH without extra currency without discount", async () => {
       const balanceBefore = toBN(await web3.eth.getBalance(USER1));
 
       const sig = signMintTest({ paymentTokenAddress: ZERO_ADDR });
@@ -683,13 +683,13 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, ZERO_ADDR);
       assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedCurrencyCount.toFixed());
       assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
-      assert.equal(toBN(tx.receipt.logs[1].args.promocode).toFixed(), 0);
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), 0);
     });
 
-    it("should correctly pay with ETH without extra currency with promocode", async () => {
+    it("should correctly pay with ETH without extra currency with discount", async () => {
       const balanceBefore = toBN(await web3.eth.getBalance(USER1));
 
-      const sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, promocode: wei(20, 25).toFixed() });
+      const sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, discount: wei(20, 25).toFixed() });
       const expectedCurrencyCount = defaultPricePerOneToken
         .times(wei(1))
         .idiv(tokenPrice)
@@ -728,10 +728,10 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, ZERO_ADDR);
       assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedCurrencyCount.toFixed());
       assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
-      assert.equal(toBN(tx.receipt.logs[1].args.promocode).toFixed(), wei(20, 25).toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), wei(20, 25).toFixed());
     });
 
-    it("should correctly pay with ERC20 for new token without promocode", async () => {
+    it("should correctly pay with ERC20 for new token without discount", async () => {
       const sig = signMintTest({});
       const expectedTokensCount = defaultPricePerOneToken.times(wei(1)).idiv(tokenPrice);
 
@@ -760,11 +760,11 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, paymentToken.address);
       assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedTokensCount.toFixed());
       assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
-      assert.equal(toBN(tx.receipt.logs[1].args.promocode).toFixed(), 0);
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), 0);
     });
 
-    it("should correctly pay with ERC20 for new token with promocode", async () => {
-      const sig = signMintTest({ promocode: wei(50, 25).toFixed() });
+    it("should correctly pay with ERC20 for new token with discount", async () => {
+      const sig = signMintTest({ discount: wei(50, 25).toFixed() });
       const expectedTokensCount = defaultPricePerOneToken
         .times(wei(1))
         .idiv(tokenPrice)
@@ -797,7 +797,7 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, paymentToken.address);
       assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedTokensCount.toFixed());
       assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
-      assert.equal(toBN(tx.receipt.logs[1].args.promocode).toFixed(), wei(50, 25).toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), wei(50, 25).toFixed());
     });
 
     it("should correctly pay with voucher token for new token", async () => {
@@ -831,7 +831,7 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, defaultVoucherContract.address);
       assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), defaultVoucherTokensAmount.toFixed());
       assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), "0");
-      assert.equal(toBN(tx.receipt.logs[1].args.promocode).toFixed(), 0);
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), 0);
     });
 
     it("should get exception if transfer currency failed", async () => {

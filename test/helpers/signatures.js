@@ -14,7 +14,7 @@ const signMint = (domain, message, privateKey) => {
   const Mint = [
     { name: "paymentTokenAddress", type: "address" },
     { name: "paymentTokenPrice", type: "uint256" },
-    { name: "promocode", type: "uint256" },
+    { name: "discount", type: "uint256" },
     { name: "endTimestamp", type: "uint256" },
     { name: "tokenURI", type: "bytes32" },
   ];

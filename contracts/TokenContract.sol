@@ -29,7 +29,7 @@ contract TokenContract is
 
     bytes32 internal constant _MINT_TYPEHASH =
         keccak256(
-            "Mint(address paymentTokenAddress,uint256 paymentTokenPrice,uint256 promocode,uint256 endTimestamp,bytes32 tokenURI)"
+            "Mint(address paymentTokenAddress,uint256 paymentTokenPrice,uint256 discount,uint256 endTimestamp,bytes32 tokenURI)"
         );
 
     ITokenFactory public override tokenFactory;
@@ -142,7 +142,7 @@ contract TokenContract is
     function mintToken(
         address paymentTokenAddress_,
         uint256 paymentTokenPrice_,
-        uint256 promocode_,
+        uint256 discount_,
         uint256 endTimestamp_,
         string memory tokenURI_,
         bytes32 r_,
@@ -156,7 +156,7 @@ contract TokenContract is
                 _MINT_TYPEHASH,
                 paymentTokenAddress_,
                 paymentTokenPrice_,
-                promocode_,
+                discount_,
                 endTimestamp_,
                 keccak256(abi.encodePacked(tokenURI_))
             )
@@ -171,12 +171,12 @@ contract TokenContract is
 
         if (paymentTokenPrice_ != 0 || paymentTokenAddress_ != address(0)) {
             if (paymentTokenAddress_ == address(0)) {
-                amountToPay_ = _payWithETH(paymentTokenPrice_, promocode_);
+                amountToPay_ = _payWithETH(paymentTokenPrice_, discount_);
             } else {
                 amountToPay_ = _payWithERC20(
                     IERC20Metadata(paymentTokenAddress_),
                     paymentTokenPrice_,
-                    promocode_
+                    discount_
                 );
             }
         }
@@ -194,7 +194,7 @@ contract TokenContract is
             paymentTokenAddress_,
             amountToPay_,
             paymentTokenPrice_,
-            promocode_
+            discount_
         );
     }
 
@@ -264,13 +264,12 @@ contract TokenContract is
     function _payWithERC20(
         IERC20Metadata tokenAddr_,
         uint256 tokenPrice_,
-        uint256 promocode_
+        uint256 discount_
     ) internal returns (uint256) {
         require(msg.value == 0, "TokenContract: Currency amount must be a zero.");
 
         uint256 amountToPay_ = tokenPrice_ != 0
-            ? (((pricePerOneToken * DECIMAL) / tokenPrice_) * (PERCENTAGE_100 - promocode_)) /
-                PERCENTAGE_100 //or (PERCENTAGE_100 - promocode_)*(pricePerOneToken * DECIMAL) / (tokenPrice_ *PERCENTAGE_100)
+            ? _getAmountAfterDiscount((pricePerOneToken * DECIMAL) / tokenPrice_, discount_)
             : voucherTokensAmount;
 
         tokenAddr_.safeTransferFrom(
@@ -282,9 +281,11 @@ contract TokenContract is
         return amountToPay_;
     }
 
-    function _payWithETH(uint256 ethPrice_, uint256 promocode_) internal returns (uint256) {
-        uint256 amountToPay_ = (((pricePerOneToken * DECIMAL) / ethPrice_) *
-            (PERCENTAGE_100 - promocode_)) / PERCENTAGE_100;
+    function _payWithETH(uint256 ethPrice_, uint256 discount_) internal returns (uint256) {
+        uint256 amountToPay_ = _getAmountAfterDiscount(
+            (pricePerOneToken * DECIMAL) / ethPrice_,
+            discount_
+        );
 
         require(msg.value >= amountToPay_, "TokenContract: Invalid currency amount.");
 
@@ -304,5 +305,13 @@ contract TokenContract is
 
     function _EIP712NameHash() internal view override returns (bytes32) {
         return keccak256(bytes(_tokenName));
+    }
+
+    function _getAmountAfterDiscount(uint256 amount_, uint256 discount_)
+        internal
+        pure
+        returns (uint256)
+    {
+        return (amount_ * (PERCENTAGE_100 - discount_)) / PERCENTAGE_100;
     }
 }

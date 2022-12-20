@@ -48,7 +48,7 @@ describe("TokenFactory", () => {
     privateKey = OWNER_PK,
     paymentTokenAddress = ZERO_ADDR,
     paymentTokenPrice = "0",
-    promocode = defaultDiscountValue.toFixed(),
+    discount = defaultDiscountValue.toFixed(),
     endTimestamp = defaultEndTime.toFixed(),
     tokenURI = defaultTokenURI,
   }) {
@@ -62,7 +62,7 @@ describe("TokenFactory", () => {
     const mint = {
       paymentTokenAddress,
       paymentTokenPrice,
-      promocode,
+      discount,
       endTimestamp,
       tokenURI: web3.utils.soliditySha3(tokenURI),
     };
