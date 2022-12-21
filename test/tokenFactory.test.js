@@ -27,6 +27,7 @@ describe("TokenFactory", () => {
   const baseTokenContractsURI = "base uri/";
   let defaultEndTime;
 
+  const defaultDiscountValue = 0;
   const defaultTokenContractId = "0";
   const defaultTokenName = "tokenName";
   const defaultTokenSymbol = "tokenSymbol";
@@ -47,6 +48,7 @@ describe("TokenFactory", () => {
     privateKey = OWNER_PK,
     paymentTokenAddress = ZERO_ADDR,
     paymentTokenPrice = "0",
+    discount = defaultDiscountValue.toFixed(),
     endTimestamp = defaultEndTime.toFixed(),
     tokenURI = defaultTokenURI,
   }) {
@@ -60,6 +62,7 @@ describe("TokenFactory", () => {
     const mint = {
       paymentTokenAddress,
       paymentTokenPrice,
+      discount,
       endTimestamp,
       tokenURI: web3.utils.soliditySha3(tokenURI),
     };
@@ -402,7 +405,7 @@ describe("TokenFactory", () => {
 
       await (
         await TokenContract.at(tokenContractsArr[0])
-      ).mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
+      ).mintToken(ZERO_ADDR, 0, defaultDiscountValue, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
         from: USER1,
       });
 
@@ -410,7 +413,7 @@ describe("TokenFactory", () => {
 
       await (
         await TokenContract.at(tokenContractsArr[0])
-      ).mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI + 1, sig.r, sig.s, sig.v, {
+      ).mintToken(ZERO_ADDR, 0, defaultDiscountValue, defaultEndTime, defaultTokenURI + 1, sig.r, sig.s, sig.v, {
         from: USER1,
       });
 
@@ -418,7 +421,7 @@ describe("TokenFactory", () => {
 
       await (
         await TokenContract.at(tokenContractsArr[2])
-      ).mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI + 2, sig.r, sig.s, sig.v, {
+      ).mintToken(ZERO_ADDR, 0, defaultDiscountValue, defaultEndTime, defaultTokenURI + 2, sig.r, sig.s, sig.v, {
         from: USER1,
       });
 

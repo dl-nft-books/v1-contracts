@@ -1,5 +1,5 @@
 const { wei, accounts, toBN } = require("../scripts/utils//utils");
-const { ZERO_ADDR } = require("../scripts/utils//constants");
+const { ZERO_ADDR, PRECISION, PERCENTAGE_100 } = require("../scripts/utils//constants");
 const { getCurrentBlockTime, setTime } = require("./helpers/hardhatTimeTraveller");
 const { signMint, signCreate } = require("./helpers/signatures");
 
@@ -32,6 +32,7 @@ describe("TokenContract", () => {
   const baseTokenContractsURI = "base uri/";
   let defaultEndTime;
 
+  const defaultDiscountValue = 0;
   const defaultTokenContractId = "0";
   const defaultTokenName = "tokenName";
   const defaultTokenSymbol = "tokenSymbol";
@@ -53,6 +54,7 @@ describe("TokenContract", () => {
     privateKey = OWNER_PK,
     paymentTokenAddress = paymentToken.address,
     paymentTokenPrice = tokenPrice.toFixed(),
+    discount = defaultDiscountValue.toFixed(),
     endTimestamp = defaultEndTime.toFixed(),
     tokenURI = defaultTokenURI,
     name = defaultTokenName,
@@ -67,6 +69,7 @@ describe("TokenContract", () => {
     const mint = {
       paymentTokenAddress,
       paymentTokenPrice,
+      discount,
       endTimestamp,
       tokenURI: web3.utils.soliditySha3(tokenURI),
     };
@@ -208,6 +211,7 @@ describe("TokenContract", () => {
       await tokenContract.mintToken(
         paymentToken.address,
         paymentTokenPrice,
+        defaultDiscountValue,
         defaultEndTime,
         defaultTokenURI,
         sig.r,
@@ -233,6 +237,7 @@ describe("TokenContract", () => {
         tokenContract.mintToken(
           paymentToken.address,
           paymentTokenPrice,
+          defaultDiscountValue,
           defaultEndTime,
           defaultTokenURI,
           sig.r,
@@ -344,17 +349,37 @@ describe("TokenContract", () => {
       const sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, paymentTokenPrice: "0" });
 
       await truffleAssert.reverts(
-        tokenContract.mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
-          from: USER1,
-        }),
+        tokenContract.mintToken(
+          ZERO_ADDR,
+          0,
+          defaultDiscountValue,
+          defaultEndTime,
+          defaultTokenURI,
+          sig.r,
+          sig.s,
+          sig.v,
+          {
+            from: USER1,
+          }
+        ),
         reason
       );
 
       await tokenContract.unpause();
 
-      await tokenContract.mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
-        from: USER1,
-      });
+      await tokenContract.mintToken(
+        ZERO_ADDR,
+        0,
+        defaultDiscountValue,
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+        }
+      );
 
       assert.equal(await tokenContract.tokenURI(0), baseTokenContractsURI + defaultTokenURI);
       assert.equal(await tokenContract.ownerOf(0), USER1);
@@ -375,10 +400,20 @@ describe("TokenContract", () => {
 
       const expectedCurrencyAmount = defaultPricePerOneToken.times(wei(1)).idiv(currencyPrice);
 
-      await tokenContract.mintToken(ZERO_ADDR, currencyPrice, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
-        from: USER1,
-        value: expectedCurrencyAmount,
-      });
+      await tokenContract.mintToken(
+        ZERO_ADDR,
+        currencyPrice,
+        defaultDiscountValue,
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+          value: expectedCurrencyAmount,
+        }
+      );
 
       assert.equal(toBN(await web3.eth.getBalance(tokenContract.address)).toFixed(), expectedCurrencyAmount.toFixed());
 
@@ -410,6 +445,7 @@ describe("TokenContract", () => {
       await tokenContract.mintToken(
         paymentToken.address,
         paymentTokenPrice,
+        defaultDiscountValue,
         defaultEndTime,
         defaultTokenURI,
         sig.r,
@@ -451,10 +487,20 @@ describe("TokenContract", () => {
 
       const expectedCurrencyAmount = defaultPricePerOneToken.times(wei(1)).idiv(currencyPrice);
 
-      await tokenContract.mintToken(ZERO_ADDR, currencyPrice, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
-        from: USER1,
-        value: expectedCurrencyAmount,
-      });
+      await tokenContract.mintToken(
+        ZERO_ADDR,
+        currencyPrice,
+        defaultDiscountValue,
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+          value: expectedCurrencyAmount,
+        }
+      );
 
       await truffleAssert.reverts(tokenContract.withdrawPaidTokens(ZERO_ADDR, tokenContract.address), reason);
     });
@@ -470,9 +516,19 @@ describe("TokenContract", () => {
     it("should correctly mint new tokens", async () => {
       let sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, paymentTokenPrice: "0" });
 
-      const tx = await tokenContract.mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
-        from: USER1,
-      });
+      const tx = await tokenContract.mintToken(
+        ZERO_ADDR,
+        0,
+        defaultDiscountValue,
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+        }
+      );
 
       assert.equal(tx.receipt.logs[1].event, "SuccessfullyMinted");
       assert.equal(tx.receipt.logs[1].args.recipient, USER1);
@@ -485,6 +541,7 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, ZERO_ADDR);
       assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), 0);
       assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), 0);
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), 0);
 
       assert.equal(await tokenContract.tokenURI(0), baseTokenContractsURI + defaultTokenURI);
       assert.equal(await tokenContract.ownerOf(0), USER1);
@@ -492,24 +549,34 @@ describe("TokenContract", () => {
       const newTokenURI = "new token URI";
       sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, paymentTokenPrice: "0", tokenURI: newTokenURI });
 
-      await tokenContract.mintToken(ZERO_ADDR, 0, defaultEndTime, newTokenURI, sig.r, sig.s, sig.v, {
-        from: USER1,
-      });
+      await tokenContract.mintToken(
+        ZERO_ADDR,
+        0,
+        defaultDiscountValue,
+        defaultEndTime,
+        newTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+        }
+      );
 
       assert.equal(await tokenContract.tokenURI(1), baseTokenContractsURI + newTokenURI);
       assert.equal(await tokenContract.ownerOf(1), USER1);
       assert.equal(await tokenContract.balanceOf(USER1), 2);
     });
 
-    it("should correctly pay with ETH for new token with extra currency", async () => {
+    it("should correctly pay with ETH for new token with extra currency without discount", async () => {
       const balanceBefore = toBN(await web3.eth.getBalance(USER1));
-
       const sig = signMintTest({ paymentTokenAddress: ZERO_ADDR });
       const expectedCurrencyCount = defaultPricePerOneToken.times(wei(1)).idiv(tokenPrice);
 
       const tx = await tokenContract.mintToken(
         ZERO_ADDR,
         tokenPrice,
+        defaultDiscountValue,
         defaultEndTime,
         defaultTokenURI,
         sig.r,
@@ -534,18 +601,71 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, ZERO_ADDR);
       assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedCurrencyCount.toFixed());
       assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), 0);
     });
 
-    it("should correctly pay with ETH without extra currency", async () => {
+    it("should correctly pay with ETH for new token with extra currency with discount", async () => {
+      const balanceBefore = toBN(await web3.eth.getBalance(USER1));
+
+      const sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, discount: wei(30, 25).toFixed() });
+      const expectedCurrencyCount = defaultPricePerOneToken
+        .times(wei(1))
+        .idiv(tokenPrice)
+        .times(100 - 30)
+        .times(PRECISION)
+        .idiv(PERCENTAGE_100);
+
+      const tx = await tokenContract.mintToken(
+        ZERO_ADDR,
+        tokenPrice,
+        wei(30, 25), //30% discount
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+          value: expectedCurrencyCount.times(1.5),
+        }
+      );
+
+      const balanceAfter = toBN(await web3.eth.getBalance(USER1));
+
+      assert.closeTo(
+        balanceBefore.minus(balanceAfter).toNumber(),
+        expectedCurrencyCount.toNumber(),
+        wei(0.001).toNumber()
+      );
+
+      assert.equal(tx.receipt.logs[1].event, "SuccessfullyMinted");
+      assert.equal(tx.receipt.logs[1].args.recipient, USER1);
+      assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, ZERO_ADDR);
+      assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedCurrencyCount.toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), wei(30, 25).toFixed());
+    });
+
+    it("should correctly pay with ETH without extra currency without discount", async () => {
       const balanceBefore = toBN(await web3.eth.getBalance(USER1));
 
       const sig = signMintTest({ paymentTokenAddress: ZERO_ADDR });
       const expectedCurrencyCount = defaultPricePerOneToken.times(wei(1)).idiv(tokenPrice);
 
-      await tokenContract.mintToken(ZERO_ADDR, tokenPrice, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
-        from: USER1,
-        value: expectedCurrencyCount,
-      });
+      const tx = await tokenContract.mintToken(
+        ZERO_ADDR,
+        tokenPrice,
+        defaultDiscountValue,
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+          value: expectedCurrencyCount,
+        }
+      );
 
       const balanceAfter = toBN(await web3.eth.getBalance(USER1));
 
@@ -557,15 +677,68 @@ describe("TokenContract", () => {
 
       assert.equal(await tokenContract.tokenURI(0), baseTokenContractsURI + defaultTokenURI);
       assert.equal(await tokenContract.ownerOf(0), USER1);
+
+      assert.equal(tx.receipt.logs[1].event, "SuccessfullyMinted");
+      assert.equal(tx.receipt.logs[1].args.recipient, USER1);
+      assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, ZERO_ADDR);
+      assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedCurrencyCount.toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), 0);
     });
 
-    it("should correctly pay with ERC20 for new token", async () => {
+    it("should correctly pay with ETH without extra currency with discount", async () => {
+      const balanceBefore = toBN(await web3.eth.getBalance(USER1));
+
+      const sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, discount: wei(20, 25).toFixed() });
+      const expectedCurrencyCount = defaultPricePerOneToken
+        .times(wei(1))
+        .idiv(tokenPrice)
+        .times(100 - 20)
+        .times(PRECISION)
+        .idiv(PERCENTAGE_100);
+
+      const tx = await tokenContract.mintToken(
+        ZERO_ADDR,
+        tokenPrice,
+        wei(20, 25), //20% discount
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+          value: expectedCurrencyCount,
+        }
+      );
+
+      const balanceAfter = toBN(await web3.eth.getBalance(USER1));
+
+      assert.closeTo(
+        balanceBefore.minus(balanceAfter).toNumber(),
+        expectedCurrencyCount.toNumber(),
+        wei(0.001).toNumber()
+      );
+
+      assert.equal(await tokenContract.tokenURI(0), baseTokenContractsURI + defaultTokenURI);
+      assert.equal(await tokenContract.ownerOf(0), USER1);
+
+      assert.equal(tx.receipt.logs[1].event, "SuccessfullyMinted");
+      assert.equal(tx.receipt.logs[1].args.recipient, USER1);
+      assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, ZERO_ADDR);
+      assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedCurrencyCount.toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), wei(20, 25).toFixed());
+    });
+
+    it("should correctly pay with ERC20 for new token without discount", async () => {
       const sig = signMintTest({});
       const expectedTokensCount = defaultPricePerOneToken.times(wei(1)).idiv(tokenPrice);
 
       const tx = await tokenContract.mintToken(
         paymentToken.address,
         tokenPrice,
+        defaultDiscountValue,
         defaultEndTime,
         defaultTokenURI,
         sig.r,
@@ -587,6 +760,44 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, paymentToken.address);
       assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedTokensCount.toFixed());
       assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), 0);
+    });
+
+    it("should correctly pay with ERC20 for new token with discount", async () => {
+      const sig = signMintTest({ discount: wei(50, 25).toFixed() });
+      const expectedTokensCount = defaultPricePerOneToken
+        .times(wei(1))
+        .idiv(tokenPrice)
+        .times(100 - 50)
+        .times(PRECISION)
+        .idiv(PERCENTAGE_100);
+
+      const tx = await tokenContract.mintToken(
+        paymentToken.address,
+        tokenPrice,
+        wei(50, 25),
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+        }
+      );
+
+      assert.equal(
+        (await paymentToken.balanceOf(USER1)).toFixed(),
+        mintTokensAmount.minus(expectedTokensCount).toFixed()
+      );
+      assert.equal(await tokenContract.ownerOf(0), USER1);
+
+      assert.equal(tx.receipt.logs[1].event, "SuccessfullyMinted");
+      assert.equal(tx.receipt.logs[1].args.recipient, USER1);
+      assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, paymentToken.address);
+      assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), expectedTokensCount.toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), tokenPrice.toFixed());
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), wei(50, 25).toFixed());
     });
 
     it("should correctly pay with voucher token for new token", async () => {
@@ -598,6 +809,7 @@ describe("TokenContract", () => {
       const tx = await tokenContract.mintToken(
         defaultVoucherContract.address,
         0,
+        defaultDiscountValue,
         defaultEndTime,
         defaultTokenURI,
         sig.r,
@@ -619,6 +831,7 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.paymentTokenAddress, defaultVoucherContract.address);
       assert.equal(toBN(tx.receipt.logs[1].args.paidTokensAmount).toFixed(), defaultVoucherTokensAmount.toFixed());
       assert.equal(toBN(tx.receipt.logs[1].args.paymentTokenPrice).toFixed(), "0");
+      assert.equal(toBN(tx.receipt.logs[1].args.discount).toFixed(), 0);
     });
 
     it("should get exception if transfer currency failed", async () => {
@@ -631,6 +844,7 @@ describe("TokenContract", () => {
         expectedCurrencyCount,
         ZERO_ADDR,
         tokenPrice,
+        defaultDiscountValue,
         defaultEndTime,
         defaultTokenURI,
         sig.r,
@@ -651,6 +865,7 @@ describe("TokenContract", () => {
         tokenContract.mintToken(
           paymentToken.address,
           tokenPrice,
+          defaultDiscountValue,
           defaultEndTime,
           defaultTokenURI,
           sig.r,
@@ -670,6 +885,7 @@ describe("TokenContract", () => {
         tokenContract.mintToken(
           defaultVoucherContract.address,
           0,
+          defaultDiscountValue,
           defaultEndTime,
           defaultTokenURI,
           sig.r,
@@ -691,10 +907,20 @@ describe("TokenContract", () => {
       const expectedCurrencyCount = defaultPricePerOneToken.times(wei(1)).idiv(tokenPrice);
 
       await truffleAssert.reverts(
-        tokenContract.mintToken(ZERO_ADDR, tokenPrice, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
-          from: USER1,
-          value: expectedCurrencyCount.idiv(2),
-        }),
+        tokenContract.mintToken(
+          ZERO_ADDR,
+          tokenPrice,
+          defaultDiscountValue,
+          defaultEndTime,
+          defaultTokenURI,
+          sig.r,
+          sig.s,
+          sig.v,
+          {
+            from: USER1,
+            value: expectedCurrencyCount.idiv(2),
+          }
+        ),
         reason
       );
     });
@@ -707,6 +933,7 @@ describe("TokenContract", () => {
       await tokenContract.mintToken(
         paymentToken.address,
         tokenPrice,
+        defaultDiscountValue,
         defaultEndTime,
         defaultTokenURI,
         sig.r,
@@ -719,6 +946,7 @@ describe("TokenContract", () => {
         tokenContract.mintToken(
           paymentToken.address,
           tokenPrice,
+          defaultDiscountValue,
           defaultEndTime,
           defaultTokenURI,
           sig.r,
@@ -739,6 +967,7 @@ describe("TokenContract", () => {
         tokenContract.mintToken(
           paymentToken.address,
           tokenPrice,
+          defaultDiscountValue,
           defaultEndTime,
           defaultTokenURI,
           sig.r,
@@ -761,6 +990,7 @@ describe("TokenContract", () => {
         tokenContract.mintToken(
           paymentToken.address,
           tokenPrice,
+          defaultDiscountValue,
           defaultEndTime,
           defaultTokenURI,
           sig.r,
@@ -777,21 +1007,51 @@ describe("TokenContract", () => {
     it("should return correct user token IDs arr", async () => {
       let sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, paymentTokenPrice: "0" });
 
-      await tokenContract.mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
-        from: USER1,
-      });
+      await tokenContract.mintToken(
+        ZERO_ADDR,
+        0,
+        defaultDiscountValue,
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+        }
+      );
 
       sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, paymentTokenPrice: "0", tokenURI: defaultTokenURI + 1 });
 
-      await tokenContract.mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI + 1, sig.r, sig.s, sig.v, {
-        from: USER2,
-      });
+      await tokenContract.mintToken(
+        ZERO_ADDR,
+        0,
+        defaultDiscountValue,
+        defaultEndTime,
+        defaultTokenURI + 1,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER2,
+        }
+      );
 
       sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, paymentTokenPrice: "0", tokenURI: defaultTokenURI + 2 });
 
-      await tokenContract.mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI + 2, sig.r, sig.s, sig.v, {
-        from: USER1,
-      });
+      await tokenContract.mintToken(
+        ZERO_ADDR,
+        0,
+        defaultDiscountValue,
+        defaultEndTime,
+        defaultTokenURI + 2,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+        }
+      );
 
       let tokenIDs = await tokenContract.getUserTokenIDs(USER1);
       assert.deepEqual([tokenIDs[0].toString(), tokenIDs[1].toString()], ["0", "2"]);
@@ -811,9 +1071,19 @@ describe("TokenContract", () => {
     it("should return correct token URI string", async () => {
       const sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, paymentTokenPrice: "0" });
 
-      await tokenContract.mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
-        from: USER1,
-      });
+      await tokenContract.mintToken(
+        ZERO_ADDR,
+        0,
+        defaultDiscountValue,
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+        }
+      );
 
       assert.equal(await tokenContract.tokenURI(0), baseTokenContractsURI + defaultTokenURI);
     });
@@ -821,9 +1091,19 @@ describe("TokenContract", () => {
     it("should return zero string if base token contracts URI is zero string", async () => {
       const sig = signMintTest({ paymentTokenAddress: ZERO_ADDR, paymentTokenPrice: "0" });
 
-      await tokenContract.mintToken(ZERO_ADDR, 0, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v, {
-        from: USER1,
-      });
+      await tokenContract.mintToken(
+        ZERO_ADDR,
+        0,
+        defaultDiscountValue,
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        {
+          from: USER1,
+        }
+      );
 
       await tokenFactory.setBaseTokenContractsURI("");
 

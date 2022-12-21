@@ -52,13 +52,15 @@ interface ITokenContract {
      * @param paymentTokenAddress the address of the payment token contract
      * @param paidTokensAmount the amount of tokens paid
      * @param paymentTokenPrice the price in USD of the payment token
+     * @param discount discount value applied
      */
     event SuccessfullyMinted(
         address indexed recipient,
         MintedTokenInfo mintedTokenInfo,
         address indexed paymentTokenAddress,
         uint256 paidTokensAmount,
-        uint256 paymentTokenPrice
+        uint256 paymentTokenPrice,
+        uint256 discount
     );
 
     /**
@@ -112,6 +114,7 @@ interface ITokenContract {
     /**
      * @param paymentTokenAddress_ the payment token address
      * @param paymentTokenPrice_ the payment token price in USD
+     * @param discount_ the discount value
      * @param endTimestamp_ the end time of signature
      * @param tokenURI_ the tokenURI string
      * @param r_ the r parameter of the ECDSA signature
@@ -121,6 +124,7 @@ interface ITokenContract {
     function mintToken(
         address paymentTokenAddress_,
         uint256 paymentTokenPrice_,
+        uint256 discount_,
         uint256 endTimestamp_,
         string memory tokenURI_,
         bytes32 r_,
