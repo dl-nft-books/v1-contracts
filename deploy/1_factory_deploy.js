@@ -2,12 +2,11 @@ const TokenFactory = artifacts.require("TokenFactory");
 const TokenContract = artifacts.require("TokenContract");
 const PublicERC1967Proxy = artifacts.require("PublicERC1967Proxy");
 
-const { parseTokenFactoryParams } = require("../helpers/deployHelper");
-const { logTransaction } = require("../runners/logger/logger");
+const { parseTokenFactoryParams } = require("./helpers/deployHelper");
 
 require("dotenv").config();
 
-module.exports = async (deployer) => {
+module.exports = async (deployer, logger) => {
   const tokenFactoryParams = parseTokenFactoryParams("./deploy/data/tokenFactoryParams.json");
 
   const tokenFactoryImpl = await deployer.deploy(TokenFactory);
@@ -16,7 +15,7 @@ module.exports = async (deployer) => {
 
   const tokenContractImpl = await deployer.deploy(TokenContract);
 
-  logTransaction(
+  logger.logTransaction(
     await tokenFactory.__TokenFactory_init(
       tokenFactoryParams.admins,
       tokenFactoryParams.baseTokenContractsURI,
@@ -33,7 +32,7 @@ module.exports = async (deployer) => {
     PRICE_DECIMALS: ${tokenFactoryParams.priceDecimals}
   `);
 
-  logTransaction(
+  logger.logTransaction(
     await tokenFactory.setNewImplementation(tokenContractImpl.address),
     "Set up new TokenContract implementation"
   );
