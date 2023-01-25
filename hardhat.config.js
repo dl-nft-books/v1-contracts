@@ -1,7 +1,7 @@
 require("@nomiclabs/hardhat-web3");
 require("@nomiclabs/hardhat-truffle5");
-require("@nomiclabs/hardhat-etherscan");
 require("@typechain/hardhat");
+require("@dlsl/hardhat-migrate");
 require("hardhat-contract-sizer");
 require("hardhat-gas-reporter");
 require("solidity-coverage");
@@ -48,12 +48,12 @@ module.exports = {
       accounts: privateKey(),
       gasMultiplier: 1.2,
     },
-    polygon_mainnet: {
+    polygon: {
       url: "https://matic-mainnet.chainstacklabs.com",
       accounts: privateKey(),
       gasMultiplier: 1.2,
     },
-    eth_mainnet: {
+    ethereum: {
       url: `https://mainnet.infura.io/v3/${process.env.INFURA_KEY}`,
       accounts: privateKey(),
       gasMultiplier: 1.2,
@@ -75,6 +75,7 @@ module.exports = {
       bsc: `${process.env.BSCSCAN_KEY}`,
       bscTestnet: `${process.env.BSCSCAN_KEY}`,
       polygon: `${process.env.POLYGON_KEY}`,
+      polygonMumbai: `${process.env.POLYGON_KEY}`,
     },
   },
   mocha: {
