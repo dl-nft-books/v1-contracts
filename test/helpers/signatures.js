@@ -46,6 +46,7 @@ const signCreate = (domain, message, privateKey) => {
     { name: "pricePerOneToken", type: "uint256" },
     { name: "voucherTokenContract", type: "address" },
     { name: "voucherTokensAmount", type: "uint256" },
+    { name: "minNFTFloorPrice", type: "uint256" },
   ];
 
   const data = {

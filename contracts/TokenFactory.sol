@@ -20,7 +20,7 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable, EIP
 
     bytes32 internal constant _CREATE_TYPEHASH =
         keccak256(
-            "Create(uint256 tokenContractId,bytes32 tokenName,bytes32 tokenSymbol,uint256 pricePerOneToken,address voucherTokenContract,uint256 voucherTokensAmount)"
+            "Create(uint256 tokenContractId,bytes32 tokenName,bytes32 tokenSymbol,uint256 pricePerOneToken,address voucherTokenContract,uint256 voucherTokensAmount,uint256 minNFTFloorPrice)"
         );
 
     ProxyBeacon public override tokenContractsBeacon;
@@ -94,7 +94,8 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable, EIP
                 keccak256(abi.encodePacked(params_.tokenSymbol)),
                 params_.pricePerOneToken,
                 params_.voucherTokenContract,
-                params_.voucherTokensAmount
+                params_.voucherTokensAmount,
+                params_.minNFTFloorPrice
             )
         );
 
@@ -106,12 +107,15 @@ contract TokenFactory is ITokenFactory, OwnableUpgradeable, UUPSUpgradeable, EIP
         );
 
         ITokenContract(newTokenContract_).__TokenContract_init(
-            params_.tokenName,
-            params_.tokenSymbol,
-            address(this),
-            params_.pricePerOneToken,
-            params_.voucherTokenContract,
-            params_.voucherTokensAmount
+            ITokenContract.TokenContractInitParams(
+                params_.tokenName,
+                params_.tokenSymbol,
+                address(this),
+                params_.pricePerOneToken,
+                params_.voucherTokenContract,
+                params_.voucherTokensAmount,
+                params_.minNFTFloorPrice
+            )
         );
 
         _tokenContracts.add(newTokenContract_);

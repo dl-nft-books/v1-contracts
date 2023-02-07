@@ -12,6 +12,7 @@ interface ITokenFactory {
      * @param pricePerOneToken the price per one token
      * @param voucherTokenContract the address of the voucher token contract
      * @param voucherTokensAmount the amount of voucher tokens
+     * @param minNFTFloorPrice the minimal NFT floor price
      */
     struct DeployTokenContractParams {
         uint256 tokenContractId;
@@ -20,6 +21,7 @@ interface ITokenFactory {
         uint256 pricePerOneToken;
         address voucherTokenContract;
         uint256 voucherTokensAmount;
+        uint256 minNFTFloorPrice;
     }
 
     /**
