@@ -199,7 +199,7 @@ interface ITokenContract {
      * @param s_ the s parameter of the ECDSA signature
      * @param v_ the v parameter of the ECDSA signature
      */
-    function minTokenByNFT(
+    function mintTokenByNFT(
         address nftAddress_,
         uint256 nftFloorPrice_,
         uint256 tokenId_,

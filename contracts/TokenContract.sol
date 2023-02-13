@@ -208,7 +208,7 @@ contract TokenContract is
         );
     }
 
-    function minTokenByNFT(
+    function mintTokenByNFT(
         address nftAddress_,
         uint256 nftFloorPrice_,
         uint256 tokenId_,

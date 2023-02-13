@@ -400,7 +400,7 @@ describe("TokenContract", () => {
       });
 
       await truffleAssert.reverts(
-        tokenContract.minTokenByNFT(
+        tokenContract.mintTokenByNFT(
           nft.address,
           nftFloorPrice,
           tokenId,
@@ -430,7 +430,7 @@ describe("TokenContract", () => {
         }
       );
 
-      await tokenContract.minTokenByNFT(
+      await tokenContract.mintTokenByNFT(
         nft.address,
         nftFloorPrice,
         tokenId,
@@ -1067,7 +1067,7 @@ describe("TokenContract", () => {
     });
   });
 
-  describe("minTokenByNFT", () => {
+  describe("mintTokenByNFT", () => {
     const tokenId = 13;
     const nftFloorPrice = wei(90, priceDecimals);
 
@@ -1082,7 +1082,7 @@ describe("TokenContract", () => {
         paymentTokenPrice: nftFloorPrice.toFixed(),
       });
 
-      const tx = await tokenContract.minTokenByNFT(
+      const tx = await tokenContract.mintTokenByNFT(
         nft.address,
         nftFloorPrice,
         tokenId,
@@ -1121,7 +1121,7 @@ describe("TokenContract", () => {
       });
 
       await truffleAssert.reverts(
-        tokenContract.minTokenByNFT(
+        tokenContract.mintTokenByNFT(
           nft.address,
           newNFTFloorPrice,
           tokenId,
@@ -1145,7 +1145,7 @@ describe("TokenContract", () => {
       });
 
       await truffleAssert.reverts(
-        tokenContract.minTokenByNFT(
+        tokenContract.mintTokenByNFT(
           nft.address,
           nftFloorPrice,
           tokenId,

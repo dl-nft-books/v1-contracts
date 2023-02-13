@@ -34,7 +34,7 @@ contract MaliciousERC721 {
         uint256
     ) external {
         for (uint256 i = 0; i < counter; i++) {
-            tokenContract.minTokenByNFT(
+            tokenContract.mintTokenByNFT(
                 address(this),
                 params.nftFloorPrice,
                 params.tokenId,
@@ -48,7 +48,7 @@ contract MaliciousERC721 {
     }
 
     function mintToken() external {
-        tokenContract.minTokenByNFT(
+        tokenContract.mintTokenByNFT(
             address(this),
             params.nftFloorPrice,
             params.tokenId,
