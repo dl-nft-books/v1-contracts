@@ -11,12 +11,15 @@ const { web3 } = require("hardhat");
 const TokenFactory = artifacts.require("TokenFactory");
 const TokenContract = artifacts.require("TokenContract");
 const Attacker = artifacts.require("Attacker");
+const MaliciousERC721 = artifacts.require("MaliciousERC721");
 const ERC20Mock = artifacts.require("ERC20Mock");
+const ERC721Mock = artifacts.require("ERC721Mock");
 const PublicERC1967Proxy = artifacts.require("PublicERC1967Proxy");
 
 TokenFactory.numberFormat = "BigNumber";
 TokenContract.numberFormat = "BigNumber";
 ERC20Mock.numberFormat = "BigNumber";
+ERC721Mock.numberFormat = "BigNumber";
 
 describe("TokenContract", () => {
   const reverter = new Reverter();
@@ -37,6 +40,7 @@ describe("TokenContract", () => {
   const defaultTokenName = "tokenName";
   const defaultTokenSymbol = "tokenSymbol";
   const defaultPricePerOneToken = wei(100, priceDecimals);
+  const defaultMinNFTFloorPrice = wei(80, priceDecimals);
   const defaultVoucherTokensAmount = wei(1);
   let defaultVoucherContract;
 
@@ -49,6 +53,7 @@ describe("TokenContract", () => {
   let tokenContractImpl;
   let tokenContract;
   let paymentToken;
+  let nft;
 
   function signMintTest({
     privateKey = OWNER_PK,
@@ -85,6 +90,7 @@ describe("TokenContract", () => {
     pricePerOneToken = defaultPricePerOneToken.toFixed(),
     voucherTokenContract = defaultVoucherContract.address,
     voucherTokensAmount = defaultVoucherTokensAmount.toFixed(),
+    minNFTFloorPrice = defaultMinNFTFloorPrice.toFixed(),
   }) {
     const buffer = Buffer.from(privateKey, "hex");
 
@@ -100,6 +106,7 @@ describe("TokenContract", () => {
       pricePerOneToken,
       voucherTokenContract,
       voucherTokensAmount,
+      minNFTFloorPrice,
     };
 
     return signCreate(domain, create, buffer);
@@ -113,6 +120,7 @@ describe("TokenContract", () => {
 
     paymentToken = await ERC20Mock.new("TestERC20", "TERC20", 18);
     defaultVoucherContract = await ERC20Mock.new("Test Voucher Token", "TVT", 18);
+    nft = await ERC721Mock.new("Test NFT", "TNFT");
 
     const _tokenFactoryImpl = await TokenFactory.new();
     const _tokenFactoryProxy = await PublicERC1967Proxy.new(_tokenFactoryImpl.address, "0x");
@@ -139,6 +147,7 @@ describe("TokenContract", () => {
         defaultPricePerOneToken,
         defaultVoucherContract.address,
         defaultVoucherTokensAmount,
+        defaultMinNFTFloorPrice,
       ],
       sig.r,
       sig.s,
@@ -170,7 +179,7 @@ describe("TokenContract", () => {
       const reason = "Initializable: contract is already initialized";
 
       await truffleAssert.reverts(
-        tokenContract.__TokenContract_init("", "", tokenContract.address, 10, ZERO_ADDR, 0),
+        tokenContract.__TokenContract_init(["", "", tokenContract.address, 10, ZERO_ADDR, 0, 0]),
         reason
       );
     });
@@ -178,30 +187,34 @@ describe("TokenContract", () => {
 
   describe("updateTokenContractParams", () => {
     const newPrice = wei(75);
+    const newMinNFTFloorPrice = wei(60, priceDecimals);
     const newName = "new name";
     const newSymbol = "NS";
 
     it("should correctly update price per one token", async () => {
-      const tx = await tokenContract.updateTokenContractParams(newPrice, newName, newSymbol);
+      const tx = await tokenContract.updateTokenContractParams(newPrice, newMinNFTFloorPrice, newName, newSymbol);
 
       assert.equal((await tokenContract.pricePerOneToken()).toFixed(), newPrice.toFixed());
+      assert.equal((await tokenContract.minNFTFloorPrice()).toFixed(), newMinNFTFloorPrice.toFixed());
       assert.equal(await tokenContract.name(), newName);
       assert.equal(await tokenContract.symbol(), newSymbol);
 
-      await tokenContract.updateTokenContractParams(newPrice, newName, newSymbol);
+      await tokenContract.updateTokenContractParams(newPrice, newMinNFTFloorPrice, newName, newSymbol);
 
       assert.equal((await tokenContract.pricePerOneToken()).toFixed(), newPrice.toFixed());
+      assert.equal((await tokenContract.minNFTFloorPrice()).toFixed(), newMinNFTFloorPrice.toFixed());
       assert.equal(await tokenContract.name(), newName);
       assert.equal(await tokenContract.symbol(), newSymbol);
 
       assert.equal(tx.receipt.logs[0].event, "TokenContractParamsUpdated");
       assert.equal(toBN(tx.receipt.logs[0].args.newPrice).toFixed(), newPrice.toFixed());
+      assert.equal(toBN(tx.receipt.logs[0].args.newMinNFTFloorPrice).toFixed(), newMinNFTFloorPrice.toFixed());
       assert.equal(tx.receipt.logs[0].args.tokenName, newName);
       assert.equal(tx.receipt.logs[0].args.tokenSymbol, newSymbol);
     });
 
     it("should correctly sign data with new contract name", async () => {
-      await tokenContract.updateTokenContractParams(newPrice, newName, newSymbol);
+      await tokenContract.updateTokenContractParams(newPrice, newMinNFTFloorPrice, newName, newSymbol);
 
       const paymentTokenPrice = wei(10000);
       const sig = signMintTest({ paymentTokenPrice: paymentTokenPrice.toFixed(), name: newName });
@@ -226,7 +239,7 @@ describe("TokenContract", () => {
     });
 
     it("should get exception if sign with old name", async () => {
-      await tokenContract.updateTokenContractParams(newPrice, newName, newSymbol);
+      await tokenContract.updateTokenContractParams(newPrice, newMinNFTFloorPrice, newName, newSymbol);
 
       const paymentTokenPrice = wei(10000);
       const sig = signMintTest({ paymentTokenPrice: paymentTokenPrice.toFixed() });
@@ -254,7 +267,10 @@ describe("TokenContract", () => {
     it("should get exception if non admin try to call this function", async () => {
       const reason = "TokenContract: Only admin can call this function.";
 
-      await truffleAssert.reverts(tokenContract.updateTokenContractParams(newPrice, "", "", { from: USER1 }), reason);
+      await truffleAssert.reverts(
+        tokenContract.updateTokenContractParams(newPrice, newMinNFTFloorPrice, "", "", { from: USER1 }),
+        reason
+      );
     });
   });
 
@@ -289,6 +305,7 @@ describe("TokenContract", () => {
 
   describe("updateAllParams", () => {
     const newPrice = wei(75);
+    const newMinNFTFloorPrice = wei(60, priceDecimals);
     const newName = "new name";
     const newSymbol = "NS";
     const newVoucherTokensAmount = wei(5);
@@ -301,6 +318,7 @@ describe("TokenContract", () => {
     it("should correctly update all params", async () => {
       const tx = await tokenContract.updateAllParams(
         newPrice,
+        newMinNFTFloorPrice,
         newVoucherContract.address,
         newVoucherTokensAmount,
         newName,
@@ -308,6 +326,7 @@ describe("TokenContract", () => {
       );
 
       assert.equal((await tokenContract.pricePerOneToken()).toFixed(), newPrice.toFixed());
+      assert.equal((await tokenContract.minNFTFloorPrice()).toFixed(), newMinNFTFloorPrice.toFixed());
       assert.equal(await tokenContract.name(), newName);
       assert.equal(await tokenContract.symbol(), newSymbol);
       assert.equal(await tokenContract.voucherTokenContract(), newVoucherContract.address);
@@ -315,6 +334,7 @@ describe("TokenContract", () => {
 
       assert.equal(tx.receipt.logs[0].event, "TokenContractParamsUpdated");
       assert.equal(toBN(tx.receipt.logs[0].args.newPrice).toFixed(), newPrice.toFixed());
+      assert.equal(toBN(tx.receipt.logs[0].args.newMinNFTFloorPrice).toFixed(), newMinNFTFloorPrice.toFixed());
       assert.equal(tx.receipt.logs[0].args.tokenName, newName);
       assert.equal(tx.receipt.logs[0].args.tokenSymbol, newSymbol);
 
@@ -329,6 +349,7 @@ describe("TokenContract", () => {
       await truffleAssert.reverts(
         tokenContract.updateAllParams(
           newPrice,
+          newMinNFTFloorPrice,
           newVoucherContract.address,
           newVoucherTokensAmount,
           newName,
@@ -341,6 +362,9 @@ describe("TokenContract", () => {
   });
 
   describe("pause/unpause", () => {
+    const tokenId = 13;
+    const nftFloorPrice = wei(90, priceDecimals);
+
     it("should pause and unpause token minting", async () => {
       const reason = "Pausable: paused";
 
@@ -365,6 +389,31 @@ describe("TokenContract", () => {
         reason
       );
 
+      await nft.mint(USER1, tokenId);
+      await nft.approve(tokenContract.address, tokenId, { from: USER1 });
+
+      const newTokenURI = "new token URI";
+      const sigNft = signMintTest({
+        paymentTokenAddress: nft.address,
+        paymentTokenPrice: nftFloorPrice.toFixed(),
+        tokenURI: newTokenURI,
+      });
+
+      await truffleAssert.reverts(
+        tokenContract.mintTokenByNFT(
+          nft.address,
+          nftFloorPrice,
+          tokenId,
+          defaultEndTime,
+          newTokenURI,
+          sigNft.r,
+          sigNft.s,
+          sigNft.v,
+          { from: USER1 }
+        ),
+        reason
+      );
+
       await tokenContract.unpause();
 
       await tokenContract.mintToken(
@@ -381,8 +430,23 @@ describe("TokenContract", () => {
         }
       );
 
+      await tokenContract.mintTokenByNFT(
+        nft.address,
+        nftFloorPrice,
+        tokenId,
+        defaultEndTime,
+        newTokenURI,
+        sigNft.r,
+        sigNft.s,
+        sigNft.v,
+        { from: USER1 }
+      );
+
       assert.equal(await tokenContract.tokenURI(0), baseTokenContractsURI + defaultTokenURI);
+      assert.equal(await tokenContract.tokenURI(1), baseTokenContractsURI + newTokenURI);
+
       assert.equal(await tokenContract.ownerOf(0), USER1);
+      assert.equal(await tokenContract.ownerOf(1), USER1);
     });
 
     it("should get exception if non admin try to call this function", async () => {
@@ -534,7 +598,7 @@ describe("TokenContract", () => {
       assert.equal(tx.receipt.logs[1].args.recipient, USER1);
       assert.equal(toBN(tx.receipt.logs[1].args.mintedTokenInfo.tokenId).toFixed(), 0);
       assert.equal(
-        toBN(tx.receipt.logs[1].args.mintedTokenInfo.pricePerOneToken).toFixed(),
+        toBN(tx.receipt.logs[1].args.mintedTokenInfo.mintedTokenPrice).toFixed(),
         defaultPricePerOneToken.toFixed()
       );
       assert.equal(tx.receipt.logs[1].args.mintedTokenInfo.tokenURI, defaultTokenURI);
@@ -1000,6 +1064,115 @@ describe("TokenContract", () => {
         ),
         reason
       );
+    });
+  });
+
+  describe("mintTokenByNFT", () => {
+    const tokenId = 13;
+    const nftFloorPrice = wei(90, priceDecimals);
+
+    beforeEach("setup", async () => {
+      await nft.mint(USER1, tokenId);
+      await nft.approve(tokenContract.address, tokenId, { from: USER1 });
+    });
+
+    it("should correctly mint token by NFT", async () => {
+      const sig = signMintTest({
+        paymentTokenAddress: nft.address,
+        paymentTokenPrice: nftFloorPrice.toFixed(),
+      });
+
+      const tx = await tokenContract.mintTokenByNFT(
+        nft.address,
+        nftFloorPrice,
+        tokenId,
+        defaultEndTime,
+        defaultTokenURI,
+        sig.r,
+        sig.s,
+        sig.v,
+        { from: USER1 }
+      );
+
+      assert.equal(await nft.ownerOf(tokenId), tokenContract.address);
+      assert.equal(await tokenContract.ownerOf(0), USER1);
+
+      assert.equal(tx.receipt.logs[3].event, "SuccessfullyMintedByNFT");
+      assert.equal(tx.receipt.logs[3].args.recipient, USER1);
+      assert.equal(toBN(tx.receipt.logs[3].args.mintedTokenInfo.tokenId).toFixed(), 0);
+      assert.equal(
+        toBN(tx.receipt.logs[3].args.mintedTokenInfo.mintedTokenPrice).toFixed(),
+        defaultMinNFTFloorPrice.toFixed()
+      );
+      assert.equal(tx.receipt.logs[3].args.mintedTokenInfo.tokenURI, defaultTokenURI);
+      assert.equal(tx.receipt.logs[3].args.nftAddress, nft.address);
+      assert.equal(toBN(tx.receipt.logs[3].args.tokenId).toFixed(), tokenId.toFixed());
+      assert.equal(toBN(tx.receipt.logs[3].args.nftFloorPrice).toFixed(), nftFloorPrice.toFixed());
+    });
+
+    it("should get exception if the nft floor price is less than the minimum", async () => {
+      const reason = "TokenContract: NFT floor price is less than the minimal.";
+
+      const newNFTFloorPrice = wei(50, priceDecimals);
+
+      const sig = signMintTest({
+        paymentTokenAddress: nft.address,
+        paymentTokenPrice: newNFTFloorPrice.toFixed(),
+      });
+
+      await truffleAssert.reverts(
+        tokenContract.mintTokenByNFT(
+          nft.address,
+          newNFTFloorPrice,
+          tokenId,
+          defaultEndTime,
+          defaultTokenURI,
+          sig.r,
+          sig.s,
+          sig.v,
+          { from: USER1 }
+        ),
+        reason
+      );
+    });
+
+    it("should get exception if sender is not the owner of the nft", async () => {
+      const reason = "TokenContract: Sender is not the owner.";
+
+      const sig = signMintTest({
+        paymentTokenAddress: nft.address,
+        paymentTokenPrice: nftFloorPrice.toFixed(),
+      });
+
+      await truffleAssert.reverts(
+        tokenContract.mintTokenByNFT(
+          nft.address,
+          nftFloorPrice,
+          tokenId,
+          defaultEndTime,
+          defaultTokenURI,
+          sig.r,
+          sig.s,
+          sig.v,
+          { from: USER2 }
+        ),
+        reason
+      );
+    });
+
+    it("should get exception if try to reenter in mint function", async () => {
+      const reason = "ReentrancyGuard: reentrant call";
+
+      const maliciousERC721 = await MaliciousERC721.new(tokenContract.address);
+
+      const sig = signMintTest({
+        paymentTokenAddress: maliciousERC721.address,
+        paymentTokenPrice: nftFloorPrice.toFixed(),
+      });
+
+      await maliciousERC721.setParams([nftFloorPrice, tokenId, defaultEndTime, defaultTokenURI, sig.r, sig.s, sig.v]);
+
+      await truffleAssert.reverts(maliciousERC721.mintToken({ from: USER1 }), reason);
     });
   });
 

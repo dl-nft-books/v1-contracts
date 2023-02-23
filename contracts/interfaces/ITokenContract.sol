@@ -13,13 +13,33 @@ interface ITokenContract {
     /**
      * @notice The structure that stores information about the minted token
      * @param tokenId the ID of the minted token
-     * @param pricePerOneToken the price, per token in dollars, to be paid by the user
+     * @param mintedTokenPrice the price to be paid by the user
      * @param tokenURI the token URI hash string
      */
     struct MintedTokenInfo {
         uint256 tokenId;
-        uint256 pricePerOneToken;
+        uint256 mintedTokenPrice;
         string tokenURI;
+    }
+
+    /**
+     * @notice The structure that stores TokenContract init params
+     * @param tokenName the name of the collection (Uses in ERC721 and ERC712)
+     * @param tokenSymbol the symbol of the collection (Uses in ERC721)
+     * @param tokenFactoryAddr the address of the TokenFactory contract
+     * @param pricePerOneToken the price per token in USD
+     * @param voucherTokenContract the address of the voucher token contract
+     * @param voucherTokensAmount the amount of voucher tokens
+     * @param minNFTFloorPrice the minimal NFT floor price in USD for the NFT by NFT option
+     */
+    struct TokenContractInitParams {
+        string tokenName;
+        string tokenSymbol;
+        address tokenFactoryAddr;
+        uint256 pricePerOneToken;
+        address voucherTokenContract;
+        uint256 voucherTokensAmount;
+        uint256 minNFTFloorPrice;
     }
 
     /**
@@ -28,7 +48,12 @@ interface ITokenContract {
      * @param tokenName the new token name
      * @param tokenSymbol the new token symbol
      */
-    event TokenContractParamsUpdated(uint256 newPrice, string tokenName, string tokenSymbol);
+    event TokenContractParamsUpdated(
+        uint256 newPrice,
+        uint256 newMinNFTFloorPrice,
+        string tokenName,
+        string tokenSymbol
+    );
 
     /**
      * @notice This event is emitted when the voucher parameters are updated
@@ -64,31 +89,63 @@ interface ITokenContract {
     );
 
     /**
-     * @notice The function for initializing contract variables
-     * @param tokenName_ the name of the collection (Uses in ERC721 and ERC712)
-     * @param tokenSymbol_ the symbol of the collection (Uses in ERC721)
-     * @param tokenFactoryAddr_ the address of the TokenFactory contract
-     * @param pricePerOneToken_ the price per token in USD
-     * @param voucherTokenContract_ the address of the voucher token contract
-     * @param voucherTokensAmount_ the amount of voucher tokens
+     * @notice This event is emitted when the user has successfully minted a new token via NFT by NFT option
+     * @param recipient the address of the user who received the token and who paid for it
+     * @param mintedTokenInfo the MintedTokenInfo struct with information about minted token
+     * @param nftAddress the address of the NFT contract paid for the token mint
+     * @param tokenId the ID of the token that was paid for the mint
+     * @param nftFloorPrice the floor price of the NFT contract
      */
-    function __TokenContract_init(
-        string memory tokenName_,
-        string memory tokenSymbol_,
-        address tokenFactoryAddr_,
-        uint256 pricePerOneToken_,
-        address voucherTokenContract_,
-        uint256 voucherTokensAmount_
-    ) external;
+    event SuccessfullyMintedByNFT(
+        address indexed recipient,
+        MintedTokenInfo mintedTokenInfo,
+        address indexed nftAddress,
+        uint256 tokenId,
+        uint256 nftFloorPrice
+    );
+
+    /**
+     * @notice The function for initializing contract variables
+     * @param initParams_ the TokenContractInitParams structure with init params
+     */
+    function __TokenContract_init(TokenContractInitParams calldata initParams_) external;
 
     /**
      * @notice The function for updating token contract parameters
      * @param newPrice_ the new price per one token
+     * @param newMinNFTFloorPrice_ the new minimal NFT floor price
      * @param newTokenName_ the new token name
      * @param newTokenSymbol_ the new token symbol
      */
     function updateTokenContractParams(
         uint256 newPrice_,
+        uint256 newMinNFTFloorPrice_,
+        string memory newTokenName_,
+        string memory newTokenSymbol_
+    ) external;
+
+    /**
+     * @notice The function for updating voucher parameters
+     * @param newVoucherTokenContract_ the address of the new voucher token contract
+     * @param newVoucherTokensAmount_ the new voucher tokens amount
+     */
+    function updateVoucherParams(address newVoucherTokenContract_, uint256 newVoucherTokensAmount_)
+        external;
+
+    /**
+     * @notice The function for updating all TokenContract parameters
+     * @param newPrice_ the new price per one token
+     * @param newMinNFTFloorPrice_ the new minimal NFT floor price
+     * @param newVoucherTokenContract_ the address of the new voucher token contract
+     * @param newVoucherTokensAmount_ the new voucher tokens amount
+     * @param newTokenName_ the new token name
+     * @param newTokenSymbol_ the new token symbol
+     */
+    function updateAllParams(
+        uint256 newPrice_,
+        uint256 newMinNFTFloorPrice_,
+        address newVoucherTokenContract_,
+        uint256 newVoucherTokensAmount_,
         string memory newTokenName_,
         string memory newTokenSymbol_
     ) external;
@@ -133,6 +190,27 @@ interface ITokenContract {
     ) external payable;
 
     /**
+     * @param nftAddress_ the payment NFT token address
+     * @param nftFloorPrice_ the floor price of the NFT collection in USD
+     * @param tokenId_ the ID of the token with which you will pay for the mint
+     * @param endTimestamp_ the end time of signature
+     * @param tokenURI_ the tokenURI string
+     * @param r_ the r parameter of the ECDSA signature
+     * @param s_ the s parameter of the ECDSA signature
+     * @param v_ the v parameter of the ECDSA signature
+     */
+    function mintTokenByNFT(
+        address nftAddress_,
+        uint256 nftFloorPrice_,
+        uint256 tokenId_,
+        uint256 endTimestamp_,
+        string memory tokenURI_,
+        bytes32 r_,
+        bytes32 s_,
+        uint8 v_
+    ) external;
+
+    /**
      * @notice The function that returns the address of the token factory
      * @return token factory address
      */
@@ -162,6 +240,12 @@ interface ITokenContract {
      * @return amount of voucher tokens
      */
     function voucherTokensAmount() external view returns (uint256);
+
+    /**
+     * @notice The function that returns the minimal NFT floor price
+     * @return minimal NFT floor price
+     */
+    function minNFTFloorPrice() external view returns (uint256);
 
     /**
      * @notice The function to get an array of tokenIDs owned by a particular user

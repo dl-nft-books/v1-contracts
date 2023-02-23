@@ -16,9 +16,9 @@ contract Attacker {
         uint8 v;
     }
 
-    ITokenContract tokenContract;
-    MintParams params;
-    uint256 counter;
+    ITokenContract public tokenContract;
+    MintParams public params;
+    uint256 public counter;
 
     constructor(address tokenContract_, MintParams memory params_) {
         tokenContract = ITokenContract(tokenContract_);

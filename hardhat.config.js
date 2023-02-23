@@ -48,6 +48,11 @@ module.exports = {
       accounts: privateKey(),
       gasMultiplier: 1.2,
     },
+    qtestnet: {
+      url: "https://rpc.qtestnet.org/",
+      accounts: privateKey(),
+      gasMultiplier: 1.2,
+    },
     polygon: {
       url: "https://matic-mainnet.chainstacklabs.com",
       accounts: privateKey(),
@@ -55,6 +60,11 @@ module.exports = {
     },
     ethereum: {
       url: `https://mainnet.infura.io/v3/${process.env.INFURA_KEY}`,
+      accounts: privateKey(),
+      gasMultiplier: 1.2,
+    },
+    qmainnet: {
+      url: "https://rpc.q.org",
       accounts: privateKey(),
       gasMultiplier: 1.2,
     },
@@ -76,7 +86,27 @@ module.exports = {
       bscTestnet: `${process.env.BSCSCAN_KEY}`,
       polygon: `${process.env.POLYGON_KEY}`,
       polygonMumbai: `${process.env.POLYGON_KEY}`,
+      qtestnet: "abc",
+      qmainnet: "abc",
     },
+    customChains: [
+      {
+        network: "qtestnet",
+        chainId: 35443,
+        urls: {
+          apiURL: "https://explorer.qtestnet.org/api",
+          browserURL: "https://explorer.qtestnet.org",
+        },
+      },
+      {
+        network: "qmainnet",
+        chainId: 35441,
+        urls: {
+          apiURL: "https://explorer.q.org/api",
+          browserURL: "https://explorer.q.org",
+        },
+      },
+    ],
   },
   mocha: {
     timeout: 1000000,

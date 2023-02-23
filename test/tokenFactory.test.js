@@ -32,6 +32,7 @@ describe("TokenFactory", () => {
   const defaultTokenName = "tokenName";
   const defaultTokenSymbol = "tokenSymbol";
   const defaultPricePerOneToken = wei(10, priceDecimals);
+  const defaultMinNFTFloorPrice = wei(7, priceDecimals);
   const defaultVoucherTokensAmount = wei(1);
   let defaultVoucherContract;
 
@@ -78,6 +79,7 @@ describe("TokenFactory", () => {
     pricePerOneToken = defaultPricePerOneToken.toFixed(),
     voucherTokenContract = defaultVoucherContract.address,
     voucherTokensAmount = defaultVoucherTokensAmount.toFixed(),
+    minNFTFloorPrice = defaultMinNFTFloorPrice.toFixed(),
   }) {
     const buffer = Buffer.from(privateKey, "hex");
 
@@ -93,6 +95,7 @@ describe("TokenFactory", () => {
       pricePerOneToken,
       voucherTokenContract,
       voucherTokensAmount,
+      minNFTFloorPrice,
     };
 
     return signCreate(domain, create, buffer);
@@ -105,6 +108,7 @@ describe("TokenFactory", () => {
     pricePerOneToken_ = defaultPricePerOneToken.toFixed(),
     voucherTokenContract_ = defaultVoucherContract.address,
     voucherTokensAmount_ = defaultVoucherTokensAmount.toFixed(),
+    minNFTFloorPrice_ = defaultMinNFTFloorPrice.toFixed(),
   }) {
     const sig = signCreateTest({
       tokenContractId: tokenContractId_,
@@ -113,10 +117,19 @@ describe("TokenFactory", () => {
       pricePerOneToken: pricePerOneToken_,
       voucherTokenContract: voucherTokenContract_,
       voucherTokensAmount: voucherTokensAmount_,
+      minNFTFloorPrice: minNFTFloorPrice_,
     });
 
     return await tokenFactory.deployTokenContract(
-      [tokenContractId_, tokenName_, tokenSymbol_, pricePerOneToken_, voucherTokenContract_, voucherTokensAmount_],
+      [
+        tokenContractId_,
+        tokenName_,
+        tokenSymbol_,
+        pricePerOneToken_,
+        voucherTokenContract_,
+        voucherTokensAmount_,
+        minNFTFloorPrice_,
+      ],
       sig.r,
       sig.s,
       sig.v,
@@ -311,6 +324,7 @@ describe("TokenFactory", () => {
           defaultPricePerOneToken,
           defaultVoucherContract.address,
           defaultVoucherTokensAmount,
+          defaultMinNFTFloorPrice,
         ],
         sig.r,
         sig.s,
@@ -327,6 +341,7 @@ describe("TokenFactory", () => {
             defaultPricePerOneToken,
             defaultVoucherContract.address,
             defaultVoucherTokensAmount,
+            defaultMinNFTFloorPrice,
           ],
           sig.r,
           sig.s,
@@ -351,6 +366,7 @@ describe("TokenFactory", () => {
             defaultPricePerOneToken,
             defaultVoucherContract.address,
             defaultVoucherTokensAmount,
+            defaultMinNFTFloorPrice,
           ],
           sig.r,
           sig.s,
